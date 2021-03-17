@@ -22,9 +22,14 @@ set(engine_sources
 	utils/l_parser.h
 	utils/l_parser.cc
 
-	L2D.cpp
+	vector/vector3d.h
+	vector/vector3d.cc
+
 	L2D.h
-	engine.cc utils/utils.h)
+	L2D.cpp
+	L3D.h
+	L3D.cpp
+	engine.cc utils/utils.h L3D.cpp L3D.h)
 
 ############################################################
 # Create an executable

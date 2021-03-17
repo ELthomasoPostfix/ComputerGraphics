@@ -59,15 +59,21 @@ void L2D::Line2D::operator +=(L2D::Point2D& moveVector) {
     p2 += moveVector;
 }
 
+std::string L2D::Line2D::toString() const {
+    return "( (" + std::to_string(p1.x) + ", " + std::to_string(p1.y) + "), ("
+               + std::to_string(p2.x) + ", " + std::to_string(p2.y) + "), ("
+               + std::to_string(color.red) + ", " + std::to_string(color.green) + ", " + std::to_string(color.blue) + ") )";
+}
+
 
 
 /// ############## LGenerator ############## ///
 
 
 L2D::LSystem::State::State(const double initialX, const double initialY, const double initialAngle)
-                          : _currentLoc(initialX, initialY)
+                          : currentLoc(initialX, initialY)
 {
-    _currentAngle = initialAngle;
+    currentAngle = initialAngle;
 }
 
 
@@ -106,10 +112,10 @@ img::EasyImage L2D::LSystem::LGenerator::generateImage(const ini::Configuration 
 void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,
                                              img::Color& lncolor, Lines2D& lines) {
 
-    _state._currentLoc.x = 0.0;
-    _state._currentLoc.y = 0.0;
-    _state._currentAngle = lSystem.get_starting_angle();
-    _angle = lSystem.get_angle();
+    _state.currentLoc.x = 0.0;
+    _state.currentLoc.y = 0.0;
+    _state.currentAngle = toRadians(lSystem.get_starting_angle());
+    _angle = toRadians(lSystem.get_angle());
 
     _p1 = L2D::Point2D(0.0, 0.0);
     _p2 = L2D::Point2D(0.0, 0.0);
@@ -134,9 +140,9 @@ void L2D::LSystem::LGenerator::recurse(const char replacedChar,
 
     // change the angle as needed
     if (replacedChar == '+') {
-        _state._currentAngle += _angle;
+        _state.currentAngle += _angle;
     } else if (replacedChar == '-') {
-        _state._currentAngle -= _angle;
+        _state.currentAngle -= _angle;
     } else if (replacedChar == '(') {
         _savedStates.push(_state);
     } else if (replacedChar == ')') {
@@ -159,14 +165,14 @@ void L2D::LSystem::LGenerator::recurse(const char replacedChar,
     else if (lSystem.draw(replacedChar)) {
 
         // starting point of the new line
-        _p1 = L2D::Point2D(_state._currentLoc.x, _state._currentLoc.y);
+        _p1 = L2D::Point2D(_state.currentLoc.x, _state.currentLoc.y);
 
         // adjust the current coordinates
-        _state._currentLoc.x += std::cos(toRadians(_state._currentAngle));
-        _state._currentLoc.y += std::sin(toRadians(_state._currentAngle));
+        _state.currentLoc.x += std::cos(_state.currentAngle);
+        _state.currentLoc.y += std::sin(_state.currentAngle);
 
         // end point of the new line
-        _p2 = L2D::Point2D(_state._currentLoc.x, _state._currentLoc.y);
+        _p2 = L2D::Point2D(_state.currentLoc.x, _state.currentLoc.y);
 
         // add a new line to the list
         lines.emplace_back(L2D::Line2D(_p1, _p2, lncolor.red, lncolor.green, lncolor.blue));
@@ -174,8 +180,8 @@ void L2D::LSystem::LGenerator::recurse(const char replacedChar,
     } else {
 
         // adjust the current coordinates
-         _state._currentLoc.x += std::cos(toRadians(_state._currentAngle));
-         _state._currentLoc.y += std::sin(toRadians(_state._currentAngle));
+         _state.currentLoc.x += std::cos(_state.currentAngle);
+         _state.currentLoc.y += std::sin(_state.currentAngle);
 
     }
 

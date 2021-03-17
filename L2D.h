@@ -57,6 +57,8 @@ namespace L2D {
 
             void operator +=(L2D::Point2D& moveVector);
 
+            std::string toString() const;
+
         public:
             Point2D p1;
             Point2D p2;
@@ -72,9 +74,9 @@ namespace L2D {
          *       This struct represents the two mutable, base components of the LGenerator.
          *       They support the generation process.
          *
-         * @member _currentLoc:
+         * @member currentLoc:
          *      The current x-coordinate and y-coordinate in 2D space.
-         * @member _currentAngle:
+         * @member currentAngle:
          *      The current angle under which to to move/draw.
          *      !! Stored in degrees !!
          */
@@ -84,8 +86,8 @@ namespace L2D {
                 State(double initialX, double initialY, double initialAngle);
 
             public:
-                L2D::Point2D _currentLoc;
-                double _currentAngle;
+                L2D::Point2D currentLoc;
+                double currentAngle;
         };
 
 

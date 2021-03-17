@@ -1,6 +1,6 @@
 #include "utils/ini_configuration.h"
 #include "utils/l_parser.h"
-#include "L2D.h"
+#include "L3D.h"
 
 #include <fstream>
 #include <iostream>
@@ -9,6 +9,63 @@
 #include <assert.h>
 
 
+L3D::Figures3D createFigures(const ini::Configuration& configuration) {
+
+    L3D::Figures3D figures = {};
+
+    for (unsigned int figureIndex = 0; figureIndex < (unsigned int) configuration["General"]["nrFigures"].as_int_or_die(); figureIndex++) {
+
+        // setup configuration variables
+        const std::string figureName = "Figure" + std::to_string(figureIndex);
+
+        std::vector<double> Color = configuration[figureName]["color"].as_double_tuple_or_die();
+        L2D::Color color(Color.at(0)*255.0, Color.at(1)*255.0, Color.at(2)*255.0);
+
+
+        // create a new figure
+        L3D::Figure newFigure = L3D::Figure(color);
+
+        // add all the 3D points to the L3D::Figure
+        std::vector<double> point = {};
+        for (unsigned int pointIndex = 0; pointIndex < (unsigned int) configuration[figureName]["nrPoints"].as_int_or_die(); pointIndex++) {
+
+            point = configuration[figureName]["point" + std::to_string(pointIndex)];
+
+            newFigure.points.emplace_back(Vector3D::point(point.at(0), point.at(1), point.at(2)));
+        }
+
+        // add all faces to the figure
+        // TODO find the actual faces, instead of making each line a face of its own
+        std::vector<int> line = {};
+        for (unsigned int lineIndex = 0; lineIndex < (unsigned int) configuration[figureName]["nrLines"].as_int_or_die(); lineIndex++) {
+
+            L3D::Face newFace;
+
+            line = configuration[figureName]["line" + std::to_string(lineIndex)].as_int_tuple_or_die();
+            newFace.point_indexes.emplace_back(line.at(0));
+            newFace.point_indexes.emplace_back(line.at(1));
+
+            newFigure.faces.emplace_back(newFace);
+        }
+
+        figures.emplace_back(newFigure);
+    }
+
+
+    return figures;
+}
+
+L2D::Lines2D projectFigures(const L3D::Figures3D& figures, const double projectionScreenDistance) {
+
+    L2D::Lines2D lines2D = {};
+
+    for (const L3D::Figure& fig : figures) {
+        L2D::Lines2D newLines = fig.toLines2D(projectionScreenDistance);
+        lines2D.insert(lines2D.end(), newLines.begin(), newLines.end());
+    }
+
+    return lines2D;
+}
 
 img::EasyImage drawLines2D(const L2D::Lines2D& lines, const double size, img::Color bgColor) {
 
@@ -85,7 +142,6 @@ img::EasyImage drawLines2D(const L2D::Lines2D& lines, const double size, img::Co
         // move the line to the correct location
         lineCopy += moveVector;
 
-
         // draw the finalized line
         image.draw_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y),
                         roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y),
@@ -99,8 +155,6 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
 {
     const std::string& type = configuration["General"]["type"].as_string_or_die();
 
-    std::cout << "TYPE : " << type << std::endl;
-
     if (type == "2DLSystem") {
 
         // create the l_parser and read the LSystem2D input file into it
@@ -108,35 +162,72 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         LParser::LSystem2D lSystem2D;
         const std::string& LFile = configuration["2DLSystem"]["inputfile"].as_string_or_die();
         std::cout << LFile << std::endl; // TODO
-        std::ifstream inputStream("../build/l_systems/" + LFile);
+        std::ifstream inputStream("../ini/l_systems/" + LFile);
         inputStream >> lSystem2D;
         inputStream.close();
 
         L2D::LSystem::LGenerator lSystemGenerator;
         return lSystemGenerator.generateImage(configuration, lSystem2D);
-
-        // return drawLines2D(lines, size, bgcolor);
     }
-    else {
+    else if (type == "Wireframe") {
 
+        // retrieve configuration attributes
+        double size = configuration["General"]["size"].as_double_or_die();
 
-        double size = 500;
+        std::vector<double> bgColor = configuration["General"]["backgroundcolor"].as_double_tuple_or_die();
+        img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(0)*255.0, bgColor.at(0)*255.0);
 
+        // create the list of figures
+        L3D::Figures3D figures = createFigures(configuration);
 
+        // apply any needed transformations
+        Matrix fullTrans;       // The complete transformation that should be applied to all points
 
-        // TODO  test
+        double rotateX = 0;     // How many degrees a figure should be rotated around the x-axis.
+        double rotateY = 0;     // How many degrees a figure should be rotated around the y-axis.
+        double rotateZ = 0;     // How many degrees a figure should be rotated around the z-axis.
+        std::vector<double> center = {};    // The final center location of the figure, after all transformations
+        double scale = 0;       // The factor by which to scale the points
+        std::string figureName; // the name by which to access the figure configuration attributes
 
-        img::Color bgcolor;
-        bgcolor.red = 2;
-        bgcolor.green = 0;
-        bgcolor.blue = 0;
-        L2D::Color lnColor(0, 255, 0);
+        std::vector<double> eyeCoordinates = configuration["General"]["eye"].as_double_tuple_or_die();
+        Vector3D eye = Vector3D::point(eyeCoordinates.at(0), eyeCoordinates.at(1), eyeCoordinates.at(2));
+        Matrix eyeTrans = L3D::eyePointTransMatrix(eye);
 
-        // TODO  test
-        std::cout << "bgColor = (" << (unsigned int)bgcolor.red << ", " << (unsigned int)bgcolor.green << ", " << (unsigned int)bgcolor.blue << ")" << std::endl;
-        std::cout << "lnColor = (" << lnColor.red << ", " << lnColor.green << ", " << lnColor.blue << ")" << std::endl;
-        // TODO  test
+        unsigned int figIndex = 0;
+        for (L3D::Figure& figure : figures) {
 
+            Vector3D targetCenter = Vector3D::point(0,0,0);   // center the figure on around (0, 0, 0)
+
+            // retrieve configuration data
+            figureName = "Figure" + std::to_string(figIndex);
+            scale   = configuration[figureName]["scale"].as_double_or_die();
+            rotateX = configuration[figureName]["rotateX"].as_double_or_die();
+            rotateY = configuration[figureName]["rotateY"].as_double_or_die();
+            rotateZ = configuration[figureName]["rotateZ"].as_double_or_die();
+            center  = configuration[figureName]["center"].as_double_tuple_or_die();
+
+            // Create all sub matrices
+            Matrix OCM = figure.centeringMatrix(targetCenter);  // origin centering matrix
+            Matrix S   = L3D::scalingMatrix(scale);             // scaling matrix
+            Matrix RX  = L3D::rotationXMatrix(toRadians(rotateX));  // rotation around the x axis
+            Matrix RY  = L3D::rotationYMatrix(toRadians(rotateY));  // rotation around the y axis
+            Matrix RZ  = L3D::rotationZMatrix(toRadians(rotateZ));  // rotation around the z axis
+            Matrix C   = L3D::translationMatrix(center.at(0), center.at(1), center.at(2));  // the intended center for the figure
+
+            // assemble and apply the full transformation matrix
+            fullTrans = OCM * S * RX * RY * RZ * C * eyeTrans;  // ALL FIGURES ROTATED SLIGHTLY
+            // fullTrans = S * RX * RY * RZ * C * eyeTrans;        // NEARLY WORKS, only small differences
+
+            figure.applyTransformation(fullTrans);
+
+            figIndex++;
+        }
+
+        // generate the 2D lines
+        L2D::Lines2D lines2D = projectFigures(figures, 1);
+
+        return drawLines2D(lines2D, size, bgcolor);
     }
 
 
