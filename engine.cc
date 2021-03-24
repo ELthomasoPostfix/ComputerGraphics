@@ -9,7 +9,7 @@
 #include <assert.h>
 
 
-L3D::Figures3D createFigures(const ini::Configuration& configuration) {
+L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
 
     L3D::Figures3D figures = {};
 
@@ -178,7 +178,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(0)*255.0, bgColor.at(0)*255.0);
 
         // create the list of figures
-        L3D::Figures3D figures = createFigures(configuration);
+        L3D::Figures3D figures = parseFigures(configuration);
 
         // apply any needed transformations
         Matrix fullTrans;       // The complete transformation that should be applied to all points
@@ -208,7 +208,6 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
             center  = configuration[figureName]["center"].as_double_tuple_or_die();
 
             // Create all sub matrices
-            Matrix OCM = figure.centeringMatrix(targetCenter);  // origin centering matrix
             Matrix S   = L3D::scalingMatrix(scale);             // scaling matrix
             Matrix RX  = L3D::rotationXMatrix(toRadians(rotateX));  // rotation around the x axis
             Matrix RY  = L3D::rotationYMatrix(toRadians(rotateY));  // rotation around the y axis
@@ -216,8 +215,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
             Matrix C   = L3D::translationMatrix(center.at(0), center.at(1), center.at(2));  // the intended center for the figure
 
             // assemble and apply the full transformation matrix
-            fullTrans = OCM * S * RX * RY * RZ * C * eyeTrans;  // ALL FIGURES ROTATED SLIGHTLY
-            // fullTrans = S * RX * RY * RZ * C * eyeTrans;        // NEARLY WORKS, only small differences
+            fullTrans = S * RX * RY * RZ * C * eyeTrans;
 
             figure.applyTransformation(fullTrans);
 

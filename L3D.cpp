@@ -211,48 +211,12 @@ std::string L3D::Figure::toString() const {
     return res;
 }
 
-Vector3D L3D::Figure::boundingSphereCenter() const {
-
-    // the center of the bounding sphere
-    Vector3D center = points.at(0);
-    // The largest distance between two points yet
-    double maxDistance = 0;
-    Vector3D distanceVec;
-
-    // find the largest distance between two points.
-    // The center of the line connecting those points
-    // is the center of the bounding sphere.
-    for (unsigned int p1 = 0; p1 < points.size() - 1; p1++) {
-        for (unsigned int p2 = p1 + 1; p2 < points.size(); p2++) {
-
-            distanceVec = points.at(p2) - points.at(p1);
-            // if the distance between p1 and p2 is greater
-            // than the currently largest seen, replace the former max
-            if (std::abs(distanceVec.length()) > maxDistance) {
-                maxDistance = std::abs(distanceVec.length());
-                center = Vector3D::point( (points.at(p1)+points.at(p2)) / 2.0 );
-            }
-        }
-    }
-
-    return center;
-}
-
-Matrix L3D::Figure::centeringMatrix(const Vector3D &targetCenter) const {
-
-    // The center of the bounding circle
-    Vector3D bsc = boundingSphereCenter();
-    // The vector to center the L3D::Figure around targetCenter
-    Vector3D moveVector = targetCenter - bsc;
-    // The matrix to center the L3D::Figure around targetCenter
-    return L3D::translationMatrix(moveVector.x, moveVector.y, moveVector.z);
-}
-
 std::ostream &L3D::Figure::operator<<(std::ostream &output_stream) const {
 
     output_stream << this->toString();
 
     return output_stream;
 }
+
 
 

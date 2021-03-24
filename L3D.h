@@ -208,25 +208,6 @@ namespace L3D {
              */
             std::string toString() const;
 
-            /*
-             * Description:
-             *      Find the 3D coordinates of the center of the
-             *      bounding sphere of the L3D::Figure.
-             */
-            Vector3D boundingSphereCenter() const;
-
-            /*
-             * Description:
-             *      Create and return a translation matrix that
-             *      moves the L3D::Figure's bounding circle's center
-             *      to the desired 3D point.
-             *
-             * @param targetCenter:
-             *      The 3D point to which we want the bounding circle's center
-             *      to move when applying the translation matrix.
-             */
-            Matrix centeringMatrix(const Vector3D& targetCenter) const;
-
             std::ostream & operator <<(std::ostream& output_stream) const;
 
         public:
