@@ -8,6 +8,8 @@
 #include "vector/vector3d.h"
 #include "L2D.h"
 
+#include <fstream>
+
 
 namespace L3D {
 
@@ -172,7 +174,234 @@ namespace L3D {
      *      The color of each of the lines of the face.
      */
     class Figure {
+        /*
+         * PUBLIC STATIC METHODS
+         */
+        public:
 
+            /*
+             * Description:
+             *      Create and return a L3D::Figure based on the lineDrawing format.
+             *
+             * @param color:
+             *      The color of each of the lines.
+             * @param configuration:
+             *      The configuration from which to parse the lines/faces.
+             * @param figureName:
+             *      The name by which to address the figure in the configuration.
+             */
+            static L3D::Figure createLineDrawingFigure(const L2D::Color& color,
+                                                       const ini::Configuration& configuration,
+                                                       const std::string& figureName);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure cube which is centered around (0, 0, 0).
+             *      Each edge is of length 1.
+             *      The resultant faces enumerate the involved points in counter clockwise fashion,
+             *      when looking at a face from outside the cube.
+             *      !!! Makes use of the input file /engine/3D_Bodies/cube.ini !!!
+             *
+             * @param color:
+             *      The color of the lines of the cube.
+             */
+            static L3D::Figure createCube(const L2D::Color& color);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure tetrahedron which is centered around (0, 0, 0).
+             *      The resultant faces enumerate the involved points in counter clockwise fashion,
+             *      when looking at a face from outside the tetrahedron.
+             *      !!! Makes use of the input file /engine/3D_Bodies/tetrahedron.ini !!!
+             *
+             * @param color:
+             *      The color of the lines of the tetrahedron.
+             */
+            static L3D::Figure createTetrahedron(const L2D::Color& color);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure octahedron which is centered around (0, 0, 0).
+             *      The resultant faces enumerate the involved points in counter clockwise fashion,
+             *      when looking at a face from outside the octahedron.
+             *      !!! Makes use of the input file /engine/3D_Bodies/octahedron.ini !!!
+             *
+             * @param color:
+             *      The color of the lines of the octahedron.
+            */
+            static L3D::Figure createOctahedron(const L2D::Color& color);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure icosahedron which is centered around (0, 0, 0).
+             *      The resultant faces enumerate the involved points in counter clockwise fashion,
+             *      when looking at a face from outside the icosahedron.
+             *      !!! Makes use of the input file /engine/3D_Bodies/icosahedron.ini !!!
+             *
+             * @param color:
+             *      The color of the lines of the icosahedron.
+            */
+            static L3D::Figure createIcosahedron(const L2D::Color& color);
+            
+            /*
+             * Description:
+             *      Create and return a L3D::Figure dodecahedron which is centered around (0, 0, 0).
+             *      The resultant faces enumerate the involved points in counter clockwise fashion,
+             *      when looking at a face from outside the dodecahedron.
+             *      !!! Makes use of the input file /engine/3D_Bodies/dodecahedron.ini !!!
+             *
+             * @param color:
+             *      The color of the lines of the dodecahedron.
+            */
+            static L3D::Figure createDodecahedron(const L2D::Color& color);
+
+            /*
+             * Description:
+             *      A function that parses a ini::Configuration file and returns
+             *      the matching basic platonic body in the form of a L3D::Figure.
+             *      The ini::configuration files are located at /engine/3D_Bodies/.
+             *      The supported platonic bodies are 'cube', 'tetrahedron' and 'octahedron'.
+             *
+             * @param color:
+             *      The color of each line of the basic platonic body.
+             * @param type:
+             *      The type of platonic body to create.
+             *      The three supported types are 'cube', 'tetrahedron' and 'octahedron'.
+             */
+            static L3D::Figure createBasicPlatonicBody(const L2D::Color& color, const std::string& type);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure that approximates a cone.
+             *      We approximate the mantle of the cone by dividing it into n triangles.
+             *      n Equidistant points will be put onto the circumference
+             *      of the bottom face, such that every pair of points, together with the
+             *      top of the cone forms a triangle.
+             *
+             * @param color:
+             *      The color of each of the lines.
+             * @param configuration:
+             *      The configuration from which to retrieve n and the height of the cone.
+             * @param figureName:
+             *      The name by which to address the figure in the configuration.
+            */
+            static L3D::Figure createCone(const L2D::Color &color,
+                                              const ini::Configuration &configuration,
+                                              const std::string& figureName);
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure that approximates a cylinder.
+             *      We approximate the mantle of the cylinder by dividing it into n rectangles.
+             *      n Equidistant points will be put onto the circumference
+             *      of the bottom and top faces, such that every two subsequent pairs
+             *      of points form a rectangle.
+             *
+             * @param color:
+             *      The color of each of the lines.
+             * @param configuration:
+             *      The configuration from which to retrieve n and the height of the cylinder.
+             * @param figureName:
+             *      The name by which to address the figure in the configuration.
+            */
+            static L3D::Figure createCylinder(const L2D::Color &color,
+                                                  const ini::Configuration &configuration,
+                                                  const std::string& figureName);
+
+
+            /*
+             * Description:
+             *      Create and return a L3D::Figure that approximates a sphere.
+             *      We approximate the sphere starting from a icosahedron. We
+             *      then division each of the faces into smaller triangles n times.
+             *      We finish by moving each resultant point to be at distance 1 from
+             *      The center of the sphere.
+             *
+             * TODO This function creates many duplicate (Vector3D) points, the middle of
+             *      the 4 triangles duplicates the points D, E and F. The 3 triangles surrounding
+             *      each starting triangle/face duplicate the points generated on the edges of that
+             *      starting triangle. Fix this inefficiency???
+             *
+             * @param color:
+             *      The color of each of the lines.
+             * @param configuration:
+             *      The configuration from which to retrieve n (the nr of times to division each icosahedron face).
+             * @param figureName:
+             *      The name by which to address the figure in the configuration.
+            */
+            static L3D::Figure createSphere(const L2D::Color& color,
+                                            const ini::Configuration& configuration,
+                                            const std::string& figureName);
+
+
+
+            static L3D::Figure createTorus(const L2D::Color& color,
+                                           const ini::Configuration& configuration,
+                                           const std::string& figureName);
+
+
+        /*
+         * PRIVATE STATIC METHODS
+         */
+        private:
+
+            /*
+             * Description:
+             *      Parse the points in the [Points] section of configuration and
+             *      add them to the points member of platonicBody.
+             *
+             * @param configuration:
+             *      The configuration which to parse the points in.
+             * @param platonicBody:
+             *      The body to which to add the parsed points.
+             *
+             * @return:
+             *      If the type is supported, then the basic platonic body is returned.
+             *      If the type is not supported, ta L3D::Figure without points or faces is returned.
+             */
+            static void parsePointsPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody);
+
+            /*
+            * Description:
+            *      Parse the faces in the [Faces] section of configuration and
+            *      add them to the faces member of platonicBody.
+            *
+            * @param configuration:
+            *      The configuration which to parse the faces in.
+            * @param platonicBody:
+            *      The body to which to add the parsed faces.
+            */
+            static void parseFacesPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody);
+
+            /*
+             * Description:
+             *      If iterationsLeft > 0, then we divide the triangle ABC into 4 sub triangles.
+             *      We do this by calculating the middle of each edge of ABC, connecting those
+             *      middle points and then recognizing each resulting triangle.
+             *      When iterationsLeft == 0, then we create a L3D::Face out of ABC
+             *      and add it to sphere.
+             *
+             * @param iterationsLeft:
+             *      The number of times we need to division ABC into sub triangles and then recurse
+             *      on the resulting sub triangles.
+             * @param A:
+             *      A corner vertex of ABC.
+             * @param B:
+             *      A corner vertex of ABC.
+             * @param C:
+             *      A corner vertex of ABC.
+             * @param sphere:
+             *      The sphere to which to add all the resulting faces of
+             *      the division.
+             */
+            static void divisionTriangleFace(unsigned int iterationsLeft,
+                                         const unsigned int Ai, const unsigned int Bi, const unsigned int Ci,
+                                         const Vector3D& A, const Vector3D& B, const Vector3D& C,
+                                         L3D::Figure& sphere);
+
+        /*
+         * NON STATIC METHODS
+         */
         public:
 
             explicit Figure(L2D::Color color);

@@ -2,11 +2,11 @@
 #include "utils/l_parser.h"
 #include "L3D.h"
 
-#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <assert.h>
+
 
 
 L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
@@ -17,40 +17,34 @@ L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
 
         // setup configuration variables
         const std::string figureName = "Figure" + std::to_string(figureIndex);
+        const std::string type = configuration[figureName]["type"].as_string_or_die();
 
         std::vector<double> Color = configuration[figureName]["color"].as_double_tuple_or_die();
         L2D::Color color(Color.at(0)*255.0, Color.at(1)*255.0, Color.at(2)*255.0);
 
-
-        // create a new figure
-        L3D::Figure newFigure = L3D::Figure(color);
-
-        // add all the 3D points to the L3D::Figure
-        std::vector<double> point = {};
-        for (unsigned int pointIndex = 0; pointIndex < (unsigned int) configuration[figureName]["nrPoints"].as_int_or_die(); pointIndex++) {
-
-            point = configuration[figureName]["point" + std::to_string(pointIndex)];
-
-            newFigure.points.emplace_back(Vector3D::point(point.at(0), point.at(1), point.at(2)));
+        if (type == "LineDrawing") {
+            figures.emplace_back(L3D::Figure::createLineDrawingFigure(color, configuration, figureName));
+        } else if (type == "Cube") {
+            figures.emplace_back(L3D::Figure::createCube(color));
+        } else if (type == "Tetrahedron") {
+            figures.emplace_back(L3D::Figure::createTetrahedron(color));
+        } else if (type == "Octahedron") {
+            figures.emplace_back(L3D::Figure::createOctahedron(color));
+        } else if (type == "Icosahedron") {
+            figures.emplace_back(L3D::Figure::createIcosahedron(color));
+        } else if (type == "Dodecahedron") {
+            figures.emplace_back(L3D::Figure::createDodecahedron(color));
+        } else if (type == "Cylinder") {
+            figures.emplace_back(L3D::Figure::createCylinder(color, configuration, figureName));
+        } else if (type == "Cone") {
+            figures.emplace_back(L3D::Figure::createCone(color, configuration, figureName));
+        } else if (type == "Sphere") {
+            figures.emplace_back(L3D::Figure::createSphere(color, configuration, figureName));
+        } else if (type == "Torus") {
+            figures.emplace_back(L3D::Figure::createTorus(color, configuration, figureName));
         }
 
-        // add all faces to the figure
-        // TODO find the actual faces, instead of making each line a face of its own
-        std::vector<int> line = {};
-        for (unsigned int lineIndex = 0; lineIndex < (unsigned int) configuration[figureName]["nrLines"].as_int_or_die(); lineIndex++) {
-
-            L3D::Face newFace;
-
-            line = configuration[figureName]["line" + std::to_string(lineIndex)].as_int_tuple_or_die();
-            newFace.point_indexes.emplace_back(line.at(0));
-            newFace.point_indexes.emplace_back(line.at(1));
-
-            newFigure.faces.emplace_back(newFace);
-        }
-
-        figures.emplace_back(newFigure);
     }
-
 
     return figures;
 }
@@ -101,7 +95,7 @@ img::EasyImage drawLines2D(const L2D::Lines2D& lines, const double size, img::Co
 
     // The image should have at least a width or a height different from 0
     // A width AND height of 0 would imply no image can be generated
-    assert(rangeX >= 0.0 ||rangeY >= 0.0);
+    assert(std::abs(rangeX) > 0.0 || std::abs(rangeY) > 0.0);
 
     // if rangeX or rangeY is 0, then set it to 1
     // ==> ensure that the width and height of the image will both be > 0
