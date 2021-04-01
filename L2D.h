@@ -5,19 +5,34 @@
 #ifndef ENGINE_L2D_H
 #define ENGINE_L2D_H
 
+#include "vector/vector3d.h"
 #include "utils/easy_image.h"
 #include "utils/ini_configuration.h"
 #include "utils/l_parser.h"
 #include "utils/utils.h"
 
-#include <cmath>
+#include <string>
 #include <list>
 #include <stack>
+
+#include <cmath>
+#include <limits>
+
+#include <iostream>
+#include <fstream>
+
+#include <stdexcept>
+#include <assert.h>
+
+
+
 
 namespace L2D {
 
     class Line2D;
     using Lines2D = std::list<Line2D>;
+    class Line2DZ;
+    using Lines2DZ = std::list<Line2DZ>;
 
 
     class Color {
@@ -57,12 +72,39 @@ namespace L2D {
 
             void operator +=(L2D::Point2D& moveVector);
 
-            std::string toString() const;
+            virtual std::string toString() const;
 
         public:
             Point2D p1;
             Point2D p2;
             L2D::Color color;
+    };
+
+
+    /*
+     * Description:
+     *      A line2D expansion that not only acts as a projected 2DLine, but also facilitates
+     *      ZBuffering by storing the z-coordinates of the 3D line it represents.
+     *
+     * @member AZ:
+     *      The z coordinate of the point p1 in its constructor.
+     * @member BZ:
+     *      The z coordinate of the point p2 in its constructor.
+     */
+    class Line2DZ : public Line2D {
+        public:
+            Line2DZ(const Vector3D& p1, const Vector3D& p2,
+                    double red, double green, double blue);
+
+            Line2DZ(const L2D::Point2D& p1, double z1,
+                    const L2D::Point2D& p2, double z2,
+                    double red, double green, double blue);
+
+            std::string toString() const override;
+
+        public:
+            double AZ;
+            double BZ;
     };
 
 

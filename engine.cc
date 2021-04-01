@@ -2,12 +2,118 @@
 #include "utils/l_parser.h"
 #include "L3D.h"
 
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <assert.h>
 
+inline double interpolate(const double i, const double max, const double zaInv, const double zbInv) {
+    return (i / max * zaInv) + (1 - (i / max)) * zbInv;
+}
 
+void draw_zbuff_line(unsigned int x0, unsigned int y0, const double z0,
+                     unsigned int x1, unsigned int y1, const double z1,
+                     img::Color color, img::EasyImage& img,
+                     L3D::ZBuffer& ZBuffer) {
+
+    assert(x0 < img.get_width() && y0 < img.get_height());
+    assert(x1 < img.get_width() && y1 < img.get_height());
+
+    double z0Inv = 1.0 / z0;
+    double z1Inv = 1.0 / z1;
+    unsigned int a;     // nr of pixels to draw
+    unsigned int counter = 0;
+    double zInv;
+
+    if (x0 == x1)
+    {
+        a = std::max(y0, y1) - std::min(y0, y1) + 1;
+        if (y1 < y0) {
+            double tmp = z0Inv;
+            z0Inv = z1Inv;
+            z1Inv = tmp;
+        }
+        // special case for x0 == x1
+        for (unsigned int i = std::min(y0, y1); i <= std::max(y0, y1); i++)
+        {
+            zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+            if (ZBuffer.replace(x0, i, zInv))
+                img(x0, i) = color;
+            counter++;
+        }
+    }
+    else if (y0 == y1)
+    {
+        a = std::max(x0, x1) - std::min(x0, x1);
+        if (x1 < x0) {
+            double tmp = z0Inv;
+            z0Inv = z1Inv;
+            z1Inv = tmp;
+        }
+        //special case for y0 == y1
+        for (unsigned int i = std::min(x0, x1); i <= std::max(x0, x1); i++)
+        {
+            zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+            if (ZBuffer.replace(i, y0, zInv))
+                img(i, y0) = color;
+            counter++;
+        }
+    }
+    else
+    {
+        unsigned int x;
+        unsigned int y;
+
+        if (x0 > x1)
+        {
+            //flip points if x1>x0: we want x0 to have the lowest value
+            std::swap(x0, x1);
+            std::swap(y0, y1);
+            std::swap(z0Inv, z1Inv);
+        }
+        double m = ((double) y1 - (double) y0) / ((double) x1 - (double) x0);
+        if (-1.0 <= m && m <= 1.0)
+        {
+            a = x1 - x0 + 1;
+
+            for (unsigned int i = 0; i <= (x1 - x0); i++)
+            {
+                x = x0 + i;
+                y = (unsigned int) round(y0 + m * i);
+
+                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                if (ZBuffer.replace(x, y, zInv))
+                    img(x, y) = color;
+                counter++;
+            }
+        }
+        else if (m > 1.0)
+        {
+            a = y1 - y0 + 1;
+
+            for (unsigned int i = 0; i <= (y1 - y0); i++)
+            {
+                x = (unsigned int) round(x0 + (i / m));
+                y = y0 + i;
+
+                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                if (ZBuffer.replace(x, y, zInv))
+                    img(x, y) = color;
+                counter++;
+            }
+        }
+        else if (m < -1.0)
+        {
+            a = y0 - y1 + 1;
+
+            for (unsigned int i = 0; i <= (y0 - y1); i++)
+            {
+                x = (unsigned int) round(x0 - (i / m));
+                y = y0 - i;
+
+                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                if (ZBuffer.replace(x, y, zInv))
+                    img(x, y) = color;
+            }
+        }
+    }
+}
 
 L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
 
@@ -61,12 +167,24 @@ L2D::Lines2D projectFigures(const L3D::Figures3D& figures, const double projecti
     return lines2D;
 }
 
+L2D::Lines2DZ projectFiguresZ(const L3D::Figures3D& figures, const double projectionScreenDistance) {
+
+    L2D::Lines2DZ lines2DZ = {};
+
+    for (const L3D::Figure& fig : figures) {
+        L2D::Lines2DZ newLines = fig.toLines2DZ(projectionScreenDistance);
+        lines2DZ.insert(lines2DZ.end(), newLines.begin(), newLines.end());
+    }
+
+    return lines2DZ;
+}
+
 img::EasyImage drawLines2D(const L2D::Lines2D& lines, const double size, img::Color bgColor) {
 
-    double minX = 32767.0;
-    double minY = 32767.0;
-    double maxX = -32768.0;
-    double maxY = -32768.0;
+    double minX =  std::numeric_limits<double>::infinity();
+    double minY =  std::numeric_limits<double>::infinity();
+    double maxX = -std::numeric_limits<double>::infinity();
+    double maxY = -std::numeric_limits<double>::infinity();
 
     // variables to classify the coordinates of any given line
     double smallerX, largerX, smallerY, largerY;
@@ -145,6 +263,92 @@ img::EasyImage drawLines2D(const L2D::Lines2D& lines, const double size, img::Co
     return image;
 }
 
+img::EasyImage drawLines2DZ(const L2D::Lines2DZ& lines, const double size, img::Color bgColor) {
+
+    double minX =  std::numeric_limits<double>::infinity();
+    double minY =  std::numeric_limits<double>::infinity();
+    double maxX = -std::numeric_limits<double>::infinity();
+    double maxY = -std::numeric_limits<double>::infinity();
+
+    // variables to classify the coordinates of any given line
+    double smallerX, largerX, smallerY, largerY;
+
+    for (const L2D::Line2D& line : lines) {
+        smallerX = std::min(line.p1.x, line.p2.x);
+        largerX = std::max(line.p1.x, line.p2.x);
+        smallerY = std::min(line.p1.y, line.p2.y);
+        largerY = std::max(line.p1.y, line.p2.y);
+
+        if (smallerX < minX)
+            minX = smallerX;
+        if (largerX > maxX)
+            maxX = largerX;
+        if (smallerY < minY)
+            minY = smallerY;
+        if (largerY > maxY)
+            maxY = largerY;
+    }
+
+    // find the differences between the smallest and largest x and y
+    double rangeX = maxX - minX;
+
+    double rangeY = maxY - minY;
+
+
+    // The image should have at least a width or a height different from 0
+    // A width AND height of 0 would imply no image can be generated
+    assert(std::abs(rangeX) > 0.0 || std::abs(rangeY) > 0.0);
+
+    // if rangeX or rangeY is 0, then set it to 1
+    // ==> ensure that the width and height of the image will both be > 0
+    rangeX = (rangeX > 0.0) ? rangeX : 1.0;
+    rangeY = (rangeY > 0.0) ? rangeY : 1.0;
+
+
+    // one of the images will be assigned size and the other a percent (range/max(ranges)) of size
+    double imageX = size * (rangeX / std::max(rangeX, rangeY));
+
+    double imageY = size * (rangeY / std::max(rangeX, rangeY));
+
+    // find the factor by which to scale every line
+    double d = 0.95 * (imageX / rangeX);
+
+    // Calculate the rescaled center of the set of lines
+    double DCx = d * ((minX + maxX) / 2.0);
+    double DCy = d * ((minY + maxY) / 2.0);
+
+    // Find the new center of the lines
+    double dx = (imageX / 2.0) - DCx;
+    double dy = (imageY / 2.0) - DCy;
+
+    L2D::Point2D moveVector(dx, dy);
+
+    img::EasyImage image(roundToInt(imageX), roundToInt(imageY), bgColor);
+
+    L3D::ZBuffer ZBuffer = L3D::ZBuffer(image.get_width(), image.get_height());
+
+    // draw the finalized lines
+    for (const L2D::Line2DZ& line : lines)
+    {
+        L2D::Line2DZ lineCopy = line;
+
+        // scale the line by a factor of d
+        lineCopy *= d;
+
+        // move the line to the correct location
+        lineCopy += moveVector;
+
+        // draw the finalized line
+        draw_zbuff_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y), lineCopy.AZ,
+                        roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y), lineCopy.BZ,
+                        img::Color(roundToInt(lineCopy.color.red), roundToInt(lineCopy.color.green), roundToInt(lineCopy.color.blue)),
+                        image,
+                        ZBuffer);
+    }
+
+    return image;
+}
+
 img::EasyImage generate_image(const ini::Configuration &configuration)
 {
     const std::string& type = configuration["General"]["type"].as_string_or_die();
@@ -155,7 +359,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
 
         LParser::LSystem2D lSystem2D;
         const std::string& LFile = configuration["2DLSystem"]["inputfile"].as_string_or_die();
-        std::cout << LFile << std::endl; // TODO
+        std::cout << LFile << std::endl; // TODO delete ???
         std::ifstream inputStream("../ini/l_systems/" + LFile);
         inputStream >> lSystem2D;
         inputStream.close();
@@ -163,7 +367,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         L2D::LSystem::LGenerator lSystemGenerator;
         return lSystemGenerator.generateImage(configuration, lSystem2D);
     }
-    else if (type == "Wireframe") {
+    else if (type == "Wireframe" || type == "ZBufferedWireframe") {
 
         // retrieve configuration attributes
         double size = configuration["General"]["size"].as_double_or_die();
@@ -177,9 +381,9 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         // apply any needed transformations
         Matrix fullTrans;       // The complete transformation that should be applied to all points
 
-        double rotateX = 0;     // How many degrees a figure should be rotated around the x-axis.
-        double rotateY = 0;     // How many degrees a figure should be rotated around the y-axis.
-        double rotateZ = 0;     // How many degrees a figure should be rotated around the z-axis.
+        double rotateX = 0;     // Rotation angle around the x-axis (degrees).
+        double rotateY = 0;     // Rotation angle around the y-axis (degrees).
+        double rotateZ = 0;     // Rotation angle around the z-axis (degrees).
         std::vector<double> center = {};    // The final center location of the figure, after all transformations
         double scale = 0;       // The factor by which to scale the points
         std::string figureName; // the name by which to access the figure configuration attributes
@@ -216,10 +420,17 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
             figIndex++;
         }
 
-        // generate the 2D lines
-        L2D::Lines2D lines2D = projectFigures(figures, 1);
+        if (type == "ZBufferedWireframe") {
+            // generate the 2D lines
+            L2D::Lines2DZ lines2D = projectFiguresZ(figures, 1);
 
-        return drawLines2D(lines2D, size, bgcolor);
+            return drawLines2DZ(lines2D, size, bgcolor);
+        } else {
+            // generate the 2D lines
+            L2D::Lines2D lines2D = projectFigures(figures, 1);
+
+            return drawLines2D(lines2D, size, bgcolor);
+        }
     }
 
 

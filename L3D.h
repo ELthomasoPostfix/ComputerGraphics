@@ -5,10 +5,8 @@
 #ifndef ENGINE_L3D_H
 #define ENGINE_L3D_H
 
-#include "vector/vector3d.h"
 #include "L2D.h"
 
-#include <fstream>
 
 
 namespace L3D {
@@ -138,6 +136,31 @@ namespace L3D {
                            const std::vector<Vector3D>& points,
                            const L2D::Color& color,
                            double projectionScreenDistance) const;
+
+            /*
+             * Description:
+             *      Convert the face to a list of 2D lines,
+             *      which can be drawn onto an img::EasyImage.
+             *      The points of the L3D::Figure should already
+             *      be in eyePoint coordinates.
+             *      Every line also stores the z-coordinates of
+             *      the to project points for later use in z-buffering.
+             *
+             * @param lines2DZ:
+             *      The list to which to add every 2D line.
+             * @param points:
+             *      The list of points that the point_indexes
+             *      refer to.
+             * @param color:
+             *      The color of each of the generated lines
+             * @param projectionScreenDistance:
+             *      The z distance of the projection screen from
+             *      The eyePoint (the current origin).
+             */
+            void addToLines2DZ(L2D::Lines2DZ& lines2DZ,
+                               const std::vector<Vector3D>& points,
+                               const L2D::Color& color,
+                               double projectionScreenDistance) const;
 
             /*
              * Description:
@@ -334,7 +357,22 @@ namespace L3D {
                                             const std::string& figureName);
 
 
-
+            /*
+             * Description:
+             *      Create and return a L3D::Figure that approximates a Torus.
+             *      We approximate the torus by subdividing the torus into n
+             *      vertical circles and then we division each circle into m
+             *      points. We then create the mantle of the torus by connecting
+             *      points of the circles i and j as (p_i, p_j, p_j+1, p_i+1).
+             *
+             * @param color:
+             *      The color of each of the lines.
+             * @param configuration:
+             *      The configuration from which to retrieve n (nr of vertical circles)
+             *      and m (nr of points on each vertical circle).
+             * @param figureName:
+             *      The name by which to address the figure in the configuration.
+            */
             static L3D::Figure createTorus(const L2D::Color& color,
                                            const ini::Configuration& configuration,
                                            const std::string& figureName);
@@ -385,11 +423,11 @@ namespace L3D {
              *      The number of times we need to division ABC into sub triangles and then recurse
              *      on the resulting sub triangles.
              * @param A:
-             *      A corner vertex of ABC.
+             *      Corner vertex A of ABC.
              * @param B:
-             *      A corner vertex of ABC.
+             *      Corner vertex B of ABC.
              * @param C:
-             *      A corner vertex of ABC.
+             *      Corner vertex C of ABC.
              * @param sphere:
              *      The sphere to which to add all the resulting faces of
              *      the division.
@@ -432,6 +470,22 @@ namespace L3D {
 
             /*
              * Description:
+             *      Convert the L3D::Figure to a list of projected 2D lines.
+             *      Additionally store the z-coordinates of the end points of
+             *      the projected line for later use in z-buffering.
+             *      We project the 3D lines onto a projection screen/plane.
+             *      The screen/plane is located at a distance of projectionScreenDistance
+             *      from the eyePoint and the connecting line between the
+             *      eyePoint and the origin from before the eyePoint transformation
+             *      was applied is perpendicular to that plane.
+             *
+             * @param projectionScreenDistance:
+             *      The distance to the eyePoint the projection screen is located.
+             */
+            L2D::Lines2DZ toLines2DZ(double projectionScreenDistance) const;
+
+            /*
+             * Description:
              *      Convert the faces that make up the face into strings
              *      and list them.
              */
@@ -446,6 +500,72 @@ namespace L3D {
             L2D::Color color;
     };
 
+
+    /*
+     * Description:
+     *      A buffer of doubles. Intended to store the smallest/lowest negative 1/z value seen yet.
+     *      For that reason each element in the buffer will be initialised to +infinity.
+     *
+     * @member width:
+     *      The width of the L3D::ZBuffer. This also denotes the
+     *      amount of columns in the L3D::ZBuffer.
+     * @member height:
+     *      The height of the L3D::ZBuffer. This also denotes the
+     *      length of each column vector.
+     */
+    class ZBuffer : public std::vector<std::vector<double>> {
+
+        public:
+
+            /*
+             * Description:
+             *      Construct the L3D::ZBuffer with width columns, each
+             *      of which is of length height.
+             *
+             * @param width:
+             *      The width (amount of columns) of the ZBuffer.
+             *      Mirrors the width of the img::EasyImage for
+             *      which the buffer is used.
+             *
+             * @param height:
+             *      The height (length of each column) of the ZBuffer.
+             *      Mirrors the width of the img::EasyImage for which
+             *      the buffer is used.
+             */
+            ZBuffer(unsigned int width, unsigned int height);
+
+            /*
+             * Description:
+             *      Determine whether zInv <  L3D::ZBuffer[x][y].
+             *
+             * @param x:
+             *      Which column of the L3D::ZBuffer to address.
+             * @param y:
+             *      Which element of column x of the L3D::ZBuffer to address.
+             * @param zInv:
+             *      The value for which to test  L3D::ZBuffer[x][y] < zInv.
+             */
+            inline bool shouldReplace(unsigned int x, unsigned int y, double zInv) const;
+
+            /*
+             * Description:
+             *      Replace L3D::ZBuffer[x][y] if zInv < L3D::ZBuffer[x][y].
+             *      Return whether or not the replacement succeeded.
+             *
+             * @param x:
+             *      Which column of the L3D::ZBuffer to address.
+             * @param y:
+             *      Which element of column x of the L3D::ZBuffer to address.
+             * @param zInv:
+             *      The value for which to test L3D::ZBuffer[x][y] < zInv.
+             */
+            bool replace(unsigned int x, unsigned int y, double zInv);
+
+        private:
+
+            unsigned int width;
+            unsigned int height;
+    };
 
 
 };

@@ -126,7 +126,6 @@ void L3D::Face::addToLines2D(L2D::Lines2D& lines2D,
                                          color.red, color.green, color.blue));
     } else {
         // TODO if a point index pair is found in multiple faces, then we make a line for each occurrence !!! =! good
-        // TODO ==> add a condition: toDrawDuplicate
         unsigned i2 = 1;
         for (unsigned int i1 = 0; i1 < point_indexes.size(); i1++) {
 
@@ -138,6 +137,40 @@ void L3D::Face::addToLines2D(L2D::Lines2D& lines2D,
             lines2D.emplace_back(L2D::Line2D(projectPoint3D(p1, projectionScreenDistance),
                                              projectPoint3D(p2, projectionScreenDistance),
                                              color.red, color.green, color.blue));
+
+            // i2 needs to be able to wrap around, as the indexes list is circular
+            i2 = (i2 == point_indexes.size() - 1) ? 0 : i2 + 1;
+        }
+    }
+}
+
+void L3D::Face::addToLines2DZ(L2D::Lines2DZ& lines2DZ,
+                              const std::vector<Vector3D> &points,
+                              const L2D::Color& color,
+                              const double projectionScreenDistance) const {
+
+    // if the face consists of only two points (a singe line),
+    // then the list should not be seen as circular
+    if (point_indexes.size() == 2) {
+        const Vector3D &p1 = points.at(point_indexes.at(0));
+        const Vector3D &p2 = points.at(point_indexes.at(1));
+
+        lines2DZ.emplace_back(L2D::Line2DZ(projectPoint3D(p1, projectionScreenDistance), p1.z,
+                                           projectPoint3D(p2, projectionScreenDistance), p2.z,
+                                           color.red, color.green, color.blue));
+    } else {
+        // TODO if a point index pair is found in multiple faces, then we make a line for each occurrence !!! =! good
+        unsigned i2 = 1;
+        for (unsigned int i1 = 0; i1 < point_indexes.size(); i1++) {
+
+            // retrieve the 3D points that need to be converted
+            const Vector3D &p1 = points.at(point_indexes.at(i1));
+            const Vector3D &p2 = points.at(point_indexes.at(i2));
+
+            // project a 3D line of two 3D points onto a 2D line
+            lines2DZ.emplace_back(L2D::Line2DZ(projectPoint3D(p1, projectionScreenDistance), p1.z,
+                                               projectPoint3D(p2, projectionScreenDistance), p2.z,
+                                               color.red, color.green, color.blue));
 
             // i2 needs to be able to wrap around, as the indexes list is circular
             i2 = (i2 == point_indexes.size() - 1) ? 0 : i2 + 1;
@@ -604,6 +637,17 @@ L2D::Lines2D L3D::Figure::toLines2D(const double projectionScreenDistance) const
     return lines2D;
 }
 
+L2D::Lines2DZ L3D::Figure::toLines2DZ(const double projectionScreenDistance) const {
+
+    L2D::Lines2DZ lines2DZ = {};
+
+    for (const L3D::Face& face : faces) {
+        face.addToLines2DZ(lines2DZ, points, color, projectionScreenDistance);
+    }
+
+    return lines2DZ;
+}
+
 std::string L3D::Figure::toString() const {
 
     std::string res;
@@ -622,4 +666,30 @@ std::ostream &L3D::Figure::operator<<(std::ostream &output_stream) const {
     output_stream << this->toString();
 
     return output_stream;
+}
+
+
+
+
+L3D::ZBuffer::ZBuffer(const unsigned int width, const unsigned int height) {
+    this->resize(width);
+
+    for (std::vector<double>& column : *this) {
+        column.resize(height, std::numeric_limits<double>::infinity());
+    }
+}
+
+bool L3D::ZBuffer::shouldReplace(const unsigned int x, const unsigned int y, const double zInv) const {
+    return zInv < (*this)[x][y];
+}
+
+bool L3D::ZBuffer::replace(unsigned int x, unsigned int y, double zInv) {
+
+    assert(x < width && y < height);
+
+    if (shouldReplace(x, y, zInv)) {
+        (*this)[x][y] = zInv;
+        return true;
+    }
+    return false;
 }
