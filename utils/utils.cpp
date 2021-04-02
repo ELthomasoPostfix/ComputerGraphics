@@ -26,3 +26,23 @@ unsigned int clamp(unsigned int val, unsigned int lowerBound, unsigned int upper
 
     return val;
 }
+
+
+std::string truncateFileName(const std::string& filePath) {
+    std::string truncatedPath = filePath;
+
+    // filePath.size() returns and unsigned type, so size - 1 could wrap around --> cast to int
+    int i = ((int) filePath.size()) - 1;
+
+    while (i >= 0) {
+
+        if (filePath.at(i) == '/')
+            break;
+
+        i--;
+    }
+
+    truncatedPath.resize(i+1);
+
+    return truncatedPath;
+}

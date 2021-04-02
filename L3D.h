@@ -568,6 +568,200 @@ namespace L3D {
     };
 
 
+    namespace LSystem {
+
+        class LGenerator;
+
+        /*
+         * Description:
+         *       This struct represents the mutable, base components of the 3D LGenerator.
+         *       They support the generation process.
+         *
+         * @member currentLoc:
+         *      The current x-coordinate, y-coordinate and z-coordinate in 3D space.
+         * @member H:
+         *      The current direction in which to draw.
+         *      Initialised at (1, 0, 0).
+         * @member L:
+         *      The direction we consider to be "left".
+         *      L is perpendicular to H.
+         *      Initialised at (0, 1, 0).
+         * @member U:
+         *      The direction we consider to be "up".
+         *      U is perpendicular to H, and is determined
+         *      once we have decided H and L.
+         *      Initialised at (0, 0, 1).
+         */
+        struct State {
+            public:
+
+                State();
+
+                State(double x, double y, double z);
+
+                /*
+                 * Description:
+                 *      A yaw rotation, which corresponds to a rotation
+                 *      around the U axis.
+                 *
+                 * @param angle:
+                 *      The angle over which to rotate in degrees.
+                 */
+                void rotateAroundU(double angle);
+                void yaw(double angle);
+
+                /*
+                 * Description:
+                 *      A pitch rotation, which corresponds to a rotation
+                 *      around the L axis.
+                 *
+                 * @param angle:
+                 *      The angle over which to rotate in degrees.
+                 */
+                void rotateAroundL(double angle);
+                void pitch(double angle);
+
+                /*
+                 * Description:
+                 *      A roll rotation, which corresponds to a rotation
+                 *      around the H axis.
+                 *
+                 * @param angle:
+                 *      The angle over which to rotate in degrees.
+                 */
+                void rotateAroundH(double angle);
+                void roll(double angle);
+
+                /*
+                 * Description:
+                 *      Perform a pitch rotation over and angle of 180°.
+                 *      More performant than pitch(180).
+                 */
+                void backFlip();
+
+                /*
+                 * Description:
+                 *      Adjust the current coordinates according to the current
+                 *      direction as described by H, L and U. In other words,
+                 *      move one unit.
+                 */
+                void move();
+
+            public:
+                Vector3D currentLoc;
+
+            private:
+                Vector3D H;
+                Vector3D L;
+                Vector3D U;
+        };
+
+
+
+        /*
+         *
+         * Description:
+         *      The LGenerator class takes in a ini::Configuration and a LParser::LSystem3D.
+         *      The generator creates and returns a L3D::Figure.
+         *      The configuration is used to construct the returned L3D::Figure.
+         *      The lsystem is used to generate the list of L3D::Faces to be added to the
+         *      resulting L3D::Figure.
+         *
+         * @member _state:
+         *      The current location and direction, represented as the state of the LGenerator.
+         *      The state contains the all mutable, base attributes that support the generation process.
+         * @member angle:
+         *      The angle based on which to modify the current direction any time it is needed.
+         *      !! Stored in degrees !!
+         * @member _p1:
+         *      The start point of any to generate line/L3D::Face.
+         *      _p1 is (re)assigned just before adjusting the current coordinates.
+         * @member _p2:
+         *      The end point of any to generate line/L3D::Face.
+         *      _p2 is (re)assigned just after adjusting the current coordinates.
+         * @member _savedStates:
+         *      It is the set of states saved during the generation of the lines/L3D::Faces.
+         *      They are only valid within the generation they were saved in.
+         *      If a '(' is encountered, then _state will be saved on the stack.
+         *      When the corresponding ')' is encountered, then the current state
+         *      will be set to the last saved state.
+         */
+
+        class LGenerator {
+            private:
+
+                /*
+                 * Description:
+                 *      Use the initiator of the provided lSystem to generate the lines
+                 *      to be drawn, in the form of L3D::Faces.
+                 *
+                 * @param lSystem:
+                 *      The lSystem based on which to generate the lines.
+                 * @param lines:
+                 *      The list to which to add the lines.
+                 */
+                 void addFaces(const LParser::LSystem3D& lSystem,
+                               L3D::Figure& L3DFigure);
+
+
+                /*
+                 * Description:
+                 *      Based on the replacedChar (not '+', '-', '^', '&', '\', '/', '(', ')'),
+                 *      if the nr of iterations left is > 0, then recurse onto the
+                 *      replacement rule of replacedChar.
+                 *      Else, adjust the current direction ('+', '-', '^', '&', '\', '/'),
+                 *      save or load the current state ('(', ')') or possibly generate a lineLL3D::Face.
+                 *
+                 * @param replacedChar:
+                 *      The character on which we are recursing.
+                 * @param lSystem:
+                 *      The lSystem we retrieve the replacement rules from.
+                 * @param iterations
+                 *      The nr of recursion iterations left.
+                 * @param L3DFigure:
+                 *      The L3D::Figure to which to add the generated lines/L3D::Faces.
+                */
+                void recurse(char replacedChar,
+                             const LParser::LSystem3D& lSystem,
+                             unsigned int iterations,
+                             L3D::Figure& L3DFigure);
+
+        public:
+
+                LGenerator();
+
+
+                /*
+                 * Description:
+                 *      Generate L3D::Figure based on the ini::Configuration.
+                 *
+                 * @param configuration:
+                 *      The requirements for the to generate L3D::Figure.
+                 * @param lSystem:
+                 *      The lSystem based on which to generate the lines/L3D::Faces to draw
+                 *      of the to generate the L3D::Figure.
+                 */
+                L3D::Figure generateFigure(const ini::Configuration &configuration,
+                                           L2D::Color color,
+                                           const LParser::LSystem3D& lSystem);
+
+
+        private:
+
+                L3D::LSystem::State _state;
+
+                double _angle{};
+
+                Vector3D _p1;
+                Vector3D _p2;
+
+                std::stack<L3D::LSystem::State> _savedStates;
+        };
+
+
+    }
+
+
 };
 
 

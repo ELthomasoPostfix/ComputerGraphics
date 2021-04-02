@@ -113,7 +113,7 @@ namespace L2D {
 
         /*
          * Description:
-         *       This struct represents the two mutable, base components of the LGenerator.
+         *       This struct represents the two mutable, base components of the 2D LGenerator.
          *       They support the generation process.
          *
          * @member currentLoc:
@@ -157,8 +157,8 @@ namespace L2D {
          * @member _savedStates:
          *      It is the set of states saved during the generation of the lines.
          *      They are only valid within the generation they were saved in.
-         *      If a '[' is encountered, then _state will be saved on the stack.
-         *      When the corresponding ']' is encountered, then the current state
+         *      If a '(' is encountered, then _state will be saved on the stack.
+         *      When the corresponding ')' is encountered, then the current state
          *      will be set to the last saved state.
          */
 
@@ -178,7 +178,7 @@ namespace L2D {
              *      The list to which to add the lines.
              */
             void generateLines(const LParser::LSystem2D& lSystem,
-                               img::Color& lncolor, Lines2D& lines);
+                               img::Color& lncolor, L2D::Lines2D& lines);
 
 
             /*
@@ -225,14 +225,14 @@ namespace L2D {
 
         private:
 
-            State _state;
+            L2D::LSystem::State _state;
 
-            double _angle;
+            double _angle{};
 
             L2D::Point2D _p1;
             L2D::Point2D _p2;
 
-            std::stack<State> _savedStates;
+            std::stack<L2D::LSystem::State> _savedStates;
         };
 
 

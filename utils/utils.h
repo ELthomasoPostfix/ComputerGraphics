@@ -5,9 +5,11 @@
 #ifndef ENGINE_UTILS_H
 #define ENGINE_UTILS_H
 
+#include <string>
 
 /*
- * Round a double to an int, using std::round(double)
+ * Description:
+ *      Round a double to an int, using std::round(double)
  *
  * @param d:
  *      The value to be rounded.
@@ -16,7 +18,8 @@ int roundToInt(double d);
 
 
 /*
- * Convert degrees to radians
+ * Description:
+ *      Convert degrees to radians
  *
  * @param degrees:
  *      The value in degrees to convert to radian
@@ -25,7 +28,8 @@ double toRadians(double degrees);
 
 
 /*
- * Clamp the passed value according to the given bounds.
+ * Description:
+ *      Clamp the passed value according to the given bounds.
  *      * val < lowerBound returns lowerBound
  *      * val > upperBound returns upperBound
  *      * else returns val
@@ -38,6 +42,19 @@ double toRadians(double degrees);
  *      If val > upperBound, clamp val to upperBound.
  */
 unsigned int clamp(unsigned int val, unsigned int lowerBound, unsigned int upperBound);
+
+/*
+ * Description:
+ *      We assume the filePath argument is the path of to a file.
+ *      We truncate the file name (including extension) until either
+ *      the first '/' from the end encountered or until the result
+ *      is an empty string.
+ *
+ * @param filePath:
+ *      The file path to truncate.
+ */
+std::string truncateFileName(const std::string& filePath);
+
 
 
 #endif //ENGINE_UTILS_H

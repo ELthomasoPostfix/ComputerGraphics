@@ -693,3 +693,172 @@ bool L3D::ZBuffer::replace(unsigned int x, unsigned int y, double zInv) {
     }
     return false;
 }
+
+
+
+L3D::LSystem::State::State() {
+    currentLoc = Vector3D::point(0, 0, 0);
+    H = Vector3D::vector(1, 0, 0);
+    L = Vector3D::vector(0, 1, 0);
+    U = Vector3D::vector(0, 0, 1);
+}
+
+L3D::LSystem::State::State(const double x, const double y, const double z) {
+    currentLoc = Vector3D::point(x, y, z);
+    H = Vector3D::vector(1, 0, 0);
+    L = Vector3D::vector(0, 1, 0);
+    U = Vector3D::vector(0, 0, 1);
+}
+
+void L3D::LSystem::State::rotateAroundU(double angle) {
+    double rAngle = toRadians(angle);
+    H = H *  std::cos(rAngle)  +  L * std::sin(rAngle);
+    L = H * -std::sin(rAngle)  +  L * std::cos(rAngle);
+}
+void L3D::LSystem::State::yaw(double angle) {
+    double rAngle = toRadians(angle);
+    Vector3D Hc = H;
+
+    H = H  * std::cos(rAngle)   +  L * std::sin(rAngle);
+    L = Hc * std::sin(-rAngle)  +  L * std::cos(rAngle);
+}
+
+void L3D::LSystem::State::rotateAroundL(double angle) {
+    double rAngle = toRadians(angle);
+    H = H *  std::cos(rAngle)  +  U * std::sin(rAngle);
+    U = H * -std::sin(rAngle)  +  U * std::cos(rAngle);
+}
+void L3D::LSystem::State::pitch(double angle) {
+    double rAngle = toRadians(angle);
+    Vector3D Hc = H;
+
+    H = H  *  std::cos(rAngle)  +  U * std::sin(rAngle);
+    U = Hc *  std::sin(-rAngle) +  U * std::cos(rAngle);
+}
+
+void L3D::LSystem::State::rotateAroundH(double angle) {
+    double rAngle = toRadians(angle);
+    L = L * std::cos(rAngle)  -  U * std::sin(rAngle);
+    U = L * std::sin(rAngle)  +  U * std::cos(rAngle);
+}
+void L3D::LSystem::State::roll(double angle) {
+    double rAngle = toRadians(angle);
+    Vector3D Lc = L;
+
+    L = L  * std::cos(rAngle)  +  U * std::sin(-rAngle);
+    U = Lc * std::sin(rAngle)  +  U * std::cos(rAngle);
+}
+
+void L3D::LSystem::State::backFlip() {
+    H *= -1.0;
+    L *= -1.0;
+}
+
+void L3D::LSystem::State::move() {
+    currentLoc += H;
+}
+
+
+
+
+L3D::LSystem::LGenerator::LGenerator() : _angle(0) {}
+
+L3D::Figure L3D::LSystem::LGenerator::generateFigure(const ini::Configuration &configuration,
+                                                     const L2D::Color color,
+                                                     const LParser::LSystem3D &lSystem) {
+
+    L3D::Figure L3DFigure = L3D::Figure(color);
+
+    addFaces(lSystem, L3DFigure);
+
+    return L3DFigure;
+}
+
+void L3D::LSystem::LGenerator::addFaces(const LParser::LSystem3D &lSystem,
+                                        L3D::Figure &L3DFigure) {
+
+    _angle = lSystem.get_angle();
+
+    _p1 = Vector3D::point(0.0, 0.0, 0.0);
+    _p2 = Vector3D::point(0.0, 0.0, 0.0);
+
+    // The stack should be empty after each lines generation,
+    // but we empty it to avoid accidental large memory consumption
+    if (!_savedStates.empty())
+        _savedStates = {};
+
+    for (const char c : lSystem.get_initiator())
+    {
+        recurse(c, lSystem, lSystem.get_nr_iterations(), L3DFigure);
+    }
+
+}
+
+void L3D::LSystem::LGenerator::recurse(char replacedChar,
+                                       const LParser::LSystem3D &lSystem,
+                                       unsigned int iterations,
+                                       L3D::Figure &L3DFigure) {
+    // change the angle as needed
+    if (replacedChar == '+') {
+        _state.yaw(_angle);
+    } else if (replacedChar == '-') {
+        _state.yaw(-_angle);
+    } else if (replacedChar == '^') {
+        _state.pitch(_angle);
+    } else if (replacedChar == '&') {
+        _state.pitch(-_angle);
+    } else if (replacedChar == '\\') {
+        _state.roll(_angle);
+    } else if (replacedChar == '/') {
+        _state.roll(-_angle);
+    } else if (replacedChar == '|') {
+        _state.backFlip();
+    } else if (replacedChar == '(') {
+        _savedStates.push(_state);
+    } else if (replacedChar == ')') {
+        if (_savedStates.empty())
+            std::cerr << "During the generation of a 3D LSystem, a ')' was encountered."
+                      << "There was, however, no saved stated to reload to." << std::endl;
+
+        _state = _savedStates.top();
+        _savedStates.pop();
+    }
+        // if recursion necessary, do it
+    else if (iterations > 0)
+    {
+        for (const char c : lSystem.get_replacement(replacedChar))
+        {
+            recurse(c, lSystem, iterations-1, L3DFigure);
+        }
+    }
+        // no more recursion needed, so start adding lines
+    else if (lSystem.draw(replacedChar)) {
+
+        // starting point of the new line
+        _p1 = _state.currentLoc;
+
+        // adjust the current coordinates
+        _state.move();
+
+        // end point of the new line
+        _p2 = _state.currentLoc;
+
+        // add a new L3D::Face to the figure
+        L3DFigure.points.emplace_back(_p1);     // TODO duplicates !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        L3DFigure.points.emplace_back(_p2);
+
+        L3D::Face newLine = L3D::Face();
+        newLine.point_indexes.emplace_back(L3DFigure.points.size()-2);
+        newLine.point_indexes.emplace_back(L3DFigure.points.size()-1);
+
+        L3DFigure.faces.emplace_back(newLine);
+
+    } else {
+
+        // adjust the current coordinates
+        _state.move();
+    }
+
+
+}
+

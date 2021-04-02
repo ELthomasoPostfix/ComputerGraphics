@@ -115,7 +115,7 @@ void draw_zbuff_line(unsigned int x0, unsigned int y0, const double z0,
     }
 }
 
-L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
+L3D::Figures3D parseFigures(const ini::Configuration& configuration, const std::string& iniFilePath = "") {
 
     L3D::Figures3D figures = {};
 
@@ -130,6 +130,19 @@ L3D::Figures3D parseFigures(const ini::Configuration& configuration) {
 
         if (type == "LineDrawing") {
             figures.emplace_back(L3D::Figure::createLineDrawingFigure(color, configuration, figureName));
+        } else if (type == "3DLSystem") {
+
+            LParser::LSystem3D lSystem3D;
+            const std::string& LFile = configuration[figureName]["inputfile"].as_string_or_die();
+            const std::string L3DFile = truncateFileName(iniFilePath) + LFile;
+            std::cout << "\t" << L3DFile << std::endl;
+            std::ifstream inputStream(L3DFile);
+            inputStream >> lSystem3D;
+            inputStream.close();
+
+            L3D::LSystem::LGenerator lSystemGenerator;
+            figures.emplace_back(lSystemGenerator.generateFigure(configuration, color, lSystem3D));
+
         } else if (type == "Cube") {
             figures.emplace_back(L3D::Figure::createCube(color));
         } else if (type == "Tetrahedron") {
@@ -349,7 +362,7 @@ img::EasyImage drawLines2DZ(const L2D::Lines2DZ& lines, const double size, img::
     return image;
 }
 
-img::EasyImage generate_image(const ini::Configuration &configuration)
+img::EasyImage generate_image(const ini::Configuration &configuration, const std::string& iniFilePath)
 {
     const std::string& type = configuration["General"]["type"].as_string_or_die();
 
@@ -359,8 +372,10 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
 
         LParser::LSystem2D lSystem2D;
         const std::string& LFile = configuration["2DLSystem"]["inputfile"].as_string_or_die();
+        const std::string L2DFile = truncateFileName(iniFilePath) + LFile;
         std::cout << LFile << std::endl; // TODO delete ???
-        std::ifstream inputStream("../ini/l_systems/" + LFile);
+        std::cout << L2DFile << std::endl; // TODO delete ???
+        std::ifstream inputStream(L2DFile);
         inputStream >> lSystem2D;
         inputStream.close();
 
@@ -376,7 +391,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration)
         img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(0)*255.0, bgColor.at(0)*255.0);
 
         // create the list of figures
-        L3D::Figures3D figures = parseFigures(configuration);
+        L3D::Figures3D figures = parseFigures(configuration, iniFilePath);
 
         // apply any needed transformations
         Matrix fullTrans;       // The complete transformation that should be applied to all points
@@ -460,7 +475,7 @@ int main(int argc, char const* argv[])
                                 continue;
                         }
 
-                        img::EasyImage image = generate_image(conf);
+                        img::EasyImage image = generate_image(conf, argv[i]);
                         if(image.get_height() > 0 && image.get_width() > 0)
                         {
                                 std::string fileName(argv[i]);

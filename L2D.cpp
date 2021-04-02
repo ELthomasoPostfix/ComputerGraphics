@@ -134,12 +134,12 @@ img::EasyImage L2D::LSystem::LGenerator::generateImage(const ini::Configuration 
 }
 
 void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,
-                                             img::Color& lncolor, Lines2D& lines) {
+                                             img::Color& lncolor, L2D::Lines2D& lines) {
 
     _state.currentLoc.x = 0.0;
     _state.currentLoc.y = 0.0;
-    _state.currentAngle = toRadians(lSystem.get_starting_angle());
-    _angle = toRadians(lSystem.get_angle());
+    _state.currentAngle = lSystem.get_starting_angle();
+    _angle = lSystem.get_angle();
 
     _p1 = L2D::Point2D(0.0, 0.0);
     _p2 = L2D::Point2D(0.0, 0.0);
@@ -151,7 +151,6 @@ void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,
 
     for (const char c : lSystem.get_initiator())
     {
-        std::cout << c << std::endl;
         recurse(c, lSystem, lSystem.get_nr_iterations(), lncolor, lines);
     }
 
@@ -171,7 +170,7 @@ void L2D::LSystem::LGenerator::recurse(const char replacedChar,
         _savedStates.push(_state);
     } else if (replacedChar == ')') {
         if (_savedStates.empty())
-            std::cerr << "During the generation of a LSystem, a ']' was encountered."
+            std::cerr << "During the generation of a 2D LSystem, a ')' was encountered."
                       << "There was, however, no saved stated to reload to." << std::endl;
 
         _state = _savedStates.top();
@@ -192,8 +191,8 @@ void L2D::LSystem::LGenerator::recurse(const char replacedChar,
         _p1 = L2D::Point2D(_state.currentLoc.x, _state.currentLoc.y);
 
         // adjust the current coordinates
-        _state.currentLoc.x += std::cos(_state.currentAngle);
-        _state.currentLoc.y += std::sin(_state.currentAngle);
+        _state.currentLoc.x += std::cos(toRadians(_state.currentAngle));
+        _state.currentLoc.y += std::sin(toRadians(_state.currentAngle));
 
         // end point of the new line
         _p2 = L2D::Point2D(_state.currentLoc.x, _state.currentLoc.y);
