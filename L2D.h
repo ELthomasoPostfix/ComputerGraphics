@@ -83,19 +83,16 @@ namespace L2D {
 
     /*
      * Description:
-     *      A line2D expansion that not only acts as a projected 2DLine, but also facilitates
+     *      A line2D extension that not only acts as a projected 2DLine, but also facilitates
      *      ZBuffering by storing the z-coordinates of the 3D line it represents.
      *
-     * @member AZ:
-     *      The z coordinate of the point p1 in its constructor.
-     * @member BZ:
-     *      The z coordinate of the point p2 in its constructor.
+     * @member p1Z:
+     *      The original z coordinate of the projected point p1 in its constructors.
+     * @member p1Z:
+     *      The original z coordinate of the projected point p2 in its constructors.
      */
     class Line2DZ : public Line2D {
         public:
-            Line2DZ(const Vector3D& p1, const Vector3D& p2,
-                    double red, double green, double blue);
-
             Line2DZ(const L2D::Point2D& p1, double z1,
                     const L2D::Point2D& p2, double z2,
                     double red, double green, double blue);
@@ -103,8 +100,8 @@ namespace L2D {
             std::string toString() const override;
 
         public:
-            double AZ;
-            double BZ;
+            double p1Z;
+            double p2Z;
     };
 
 

@@ -3,8 +3,8 @@
 #include "L3D.h"
 
 
-inline double interpolate(const double i, const double max, const double zaInv, const double zbInv) {
-    return (i / max * zaInv) + (1 - (i / max)) * zbInv;
+inline double interpolate(const double pxNr, const double pxCount, const double zaInv, const double zbInv) {
+    return ((pxNr / (pxCount - 1)) * zaInv) + ((1 - (pxNr / (pxCount - 1))) * zbInv);
 }
 
 void draw_zbuff_line(unsigned int x0, unsigned int y0, const double z0,
@@ -17,42 +17,46 @@ void draw_zbuff_line(unsigned int x0, unsigned int y0, const double z0,
 
     double z0Inv = 1.0 / z0;
     double z1Inv = 1.0 / z1;
-    unsigned int a;     // nr of pixels to draw
-    unsigned int counter = 0;
+    unsigned int pxCount;     // nr of pixels to draw
+    unsigned int pxNr;
     double zInv;
 
     if (x0 == x1)
     {
-        a = std::max(y0, y1) - std::min(y0, y1) + 1;
-        if (y1 < y0) {
-            double tmp = z0Inv;
-            z0Inv = z1Inv;
-            z1Inv = tmp;
-        }
+        pxCount = std::max(y0, y1) - std::min(y0, y1) + 1;
+        pxNr = pxCount - 1;
+
+        // The pixels will be coloured in the order of the smallest to the largest of y0, y1,
+        // so we make sure that the smallest of the two's zInv is in z0Inv.
+        if (y1 < y0)
+            std::swap(z0Inv, z1Inv);
+
         // special case for x0 == x1
         for (unsigned int i = std::min(y0, y1); i <= std::max(y0, y1); i++)
         {
-            zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+            zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
             if (ZBuffer.replace(x0, i, zInv))
                 img(x0, i) = color;
-            counter++;
+            pxNr--;
         }
     }
     else if (y0 == y1)
     {
-        a = std::max(x0, x1) - std::min(x0, x1);
-        if (x1 < x0) {
-            double tmp = z0Inv;
-            z0Inv = z1Inv;
-            z1Inv = tmp;
-        }
-        //special case for y0 == y1
+        pxCount = std::max(x0, x1) - std::min(x0, x1) + 1;
+        pxNr = pxCount - 1;
+
+        // The pixels will be coloured in the order of the smallest to the largest of x0, x1,
+        // so we make sure that the smallest of the two's zInv is in z0Inv.
+        if (x1 < x0)
+            std::swap(z0Inv, z1Inv);
+
+        // special case for y0 == y1
         for (unsigned int i = std::min(x0, x1); i <= std::max(x0, x1); i++)
         {
-            zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+            zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
             if (ZBuffer.replace(i, y0, zInv))
                 img(i, y0) = color;
-            counter++;
+            pxNr--;
         }
     }
     else
@@ -62,54 +66,58 @@ void draw_zbuff_line(unsigned int x0, unsigned int y0, const double z0,
 
         if (x0 > x1)
         {
-            //flip points if x1>x0: we want x0 to have the lowest value
+            // flip points if x1>x0: we want x0 to have the lowest value
             std::swap(x0, x1);
             std::swap(y0, y1);
-            std::swap(z0Inv, z1Inv);
+            std::swap(z0Inv, z1Inv);     // TODO: commenting makes z_buffered_wireframes118.ini correct
         }
         double m = ((double) y1 - (double) y0) / ((double) x1 - (double) x0);
         if (-1.0 <= m && m <= 1.0)
         {
-            a = x1 - x0 + 1;
+            pxCount = x1 - x0 + 1;
+            pxNr = pxCount - 1;
 
             for (unsigned int i = 0; i <= (x1 - x0); i++)
             {
                 x = x0 + i;
-                y = (unsigned int) round(y0 + m * i);
+                y = (unsigned int) roundToInt((double) y0 + m * (double) i);
 
-                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
-                counter++;
+                pxNr--;
             }
         }
         else if (m > 1.0)
         {
-            a = y1 - y0 + 1;
+            pxCount = y1 - y0 + 1;
+            pxNr = pxCount - 1;
 
             for (unsigned int i = 0; i <= (y1 - y0); i++)
             {
-                x = (unsigned int) round(x0 + (i / m));
+                x = (unsigned int) roundToInt((double) x0 + ((double) i / m));
                 y = y0 + i;
 
-                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
-                counter++;
+                pxNr--;
             }
         }
         else if (m < -1.0)
         {
-            a = y0 - y1 + 1;
+            pxCount = y0 - y1 + 1;
+            pxNr = pxCount - 1;
 
             for (unsigned int i = 0; i <= (y0 - y1); i++)
             {
-                x = (unsigned int) round(x0 - (i / m));
+                x = (unsigned int) roundToInt((double) x0 - ((double) i / m));
                 y = y0 - i;
 
-                zInv = ((double)i / a * z0Inv) + (1 - ((double)i / a)) * z1Inv;
+                zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
+                pxNr--;
             }
         }
     }
@@ -130,6 +138,7 @@ L3D::Figures3D parseFigures(const ini::Configuration& configuration, const std::
 
         if (type == "LineDrawing") {
             figures.emplace_back(L3D::Figure::createLineDrawingFigure(color, configuration, figureName));
+
         } else if (type == "3DLSystem") {
 
             LParser::LSystem3D lSystem3D;
@@ -352,8 +361,8 @@ img::EasyImage drawLines2DZ(const L2D::Lines2DZ& lines, const double size, img::
         lineCopy += moveVector;
 
         // draw the finalized line
-        draw_zbuff_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y), lineCopy.AZ,
-                        roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y), lineCopy.BZ,
+        draw_zbuff_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y), lineCopy.p1Z,
+                        roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y), lineCopy.p2Z,
                         img::Color(roundToInt(lineCopy.color.red), roundToInt(lineCopy.color.green), roundToInt(lineCopy.color.blue)),
                         image,
                         ZBuffer);
@@ -374,7 +383,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         const std::string& LFile = configuration["2DLSystem"]["inputfile"].as_string_or_die();
         const std::string L2DFile = truncateFileName(iniFilePath) + LFile;
         std::cout << LFile << std::endl; // TODO delete ???
-        std::cout << L2DFile << std::endl; // TODO delete ???
+        std::cout << "\t" << L2DFile << std::endl; // TODO delete ???
         std::ifstream inputStream(L2DFile);
         inputStream >> lSystem2D;
         inputStream.close();
@@ -390,7 +399,8 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         std::vector<double> bgColor = configuration["General"]["backgroundcolor"].as_double_tuple_or_die();
         img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(0)*255.0, bgColor.at(0)*255.0);
 
-        // create the list of figures
+        // Parse and create the list of figures.
+        // These figures are composed of Vector3D points.
         L3D::Figures3D figures = parseFigures(configuration, iniFilePath);
 
         // apply any needed transformations
@@ -409,8 +419,6 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
 
         unsigned int figIndex = 0;
         for (L3D::Figure& figure : figures) {
-
-            Vector3D targetCenter = Vector3D::point(0,0,0);   // center the figure on around (0, 0, 0)
 
             // retrieve configuration data
             figureName = "Figure" + std::to_string(figIndex);
@@ -437,12 +445,12 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
 
         if (type == "ZBufferedWireframe") {
             // generate the 2D lines
-            L2D::Lines2DZ lines2D = projectFiguresZ(figures, 1);
+            L2D::Lines2DZ lines2D = projectFiguresZ(figures, 1.0);
 
             return drawLines2DZ(lines2D, size, bgcolor);
         } else {
             // generate the 2D lines
-            L2D::Lines2D lines2D = projectFigures(figures, 1);
+            L2D::Lines2D lines2D = projectFigures(figures, 1.0);
 
             return drawLines2D(lines2D, size, bgcolor);
         }

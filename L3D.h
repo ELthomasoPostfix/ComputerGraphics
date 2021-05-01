@@ -654,6 +654,11 @@ namespace L3D {
                 Vector3D H;
                 Vector3D L;
                 Vector3D U;
+
+            protected:
+                friend LGenerator;
+                unsigned int savedIndex;
+                bool canReloadSafely;
         };
 
 
@@ -756,6 +761,9 @@ namespace L3D {
                 Vector3D _p2;
 
                 std::stack<L3D::LSystem::State> _savedStates;
+
+                bool _justTunneled;
+                bool _justReloaded;
         };
 
 

@@ -10,7 +10,7 @@ X: Niet werkend of niet geïmplementeerd
 |---|---------------------------|---|
 | 1 | 2D L-systemen             | V |
 |   | Met haakjes               | V |
-|   | Stochastisch              | - |
+|   | Stochastisch              | X |
 | 2 | Transformaties            | V |
 |   | Eye-point                 | V |
 |   | Projectie                 | V |
@@ -18,8 +18,8 @@ X: Niet werkend of niet geïmplementeerd
 |   | Kegel en cylinder         | V |
 |   | Bol                       | V |
 |   | Torus                     | V |
-|   | 3D L-systemen             |   |
-| 4 | Z-buffering (lijnen)      |   |
+|   | 3D L-systemen             | V |
+| 4 | Z-buffering (lijnen)      | - |
 | 5 | Triangulatie              |   |
 |   | Z-buffering (driehoeken)  |   |
 | 6 | 3D fractalen              |   |
@@ -39,7 +39,11 @@ X: Niet werkend of niet geïmplementeerd
 Geïmplementeerde vorm van texture mapping: ...
 
 ## Gekende problemen 
-...
+
+* ZBuffering met lijnen: in de tekeningen waar enkel kubussen aanwezig zijn, kan men sommige foutjes terug vinden in de overlappingen. 
+    + z_buffered_wireframes038.ini 
+    + z_buffered_wireframes115.ini
+
 ## Niet-gequoteerde functionaliteit
 ...
 

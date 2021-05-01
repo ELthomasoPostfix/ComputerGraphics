@@ -672,21 +672,22 @@ std::ostream &L3D::Figure::operator<<(std::ostream &output_stream) const {
 
 
 L3D::ZBuffer::ZBuffer(const unsigned int width, const unsigned int height) {
+    this->width = width;
+    this->height = height;
+
     this->resize(width);
 
     for (std::vector<double>& column : *this) {
-        column.resize(height, std::numeric_limits<double>::infinity());
+        column.resize(height, +std::numeric_limits<double>::infinity());
     }
 }
 
 bool L3D::ZBuffer::shouldReplace(const unsigned int x, const unsigned int y, const double zInv) const {
+    assert(x < width && y < height);
     return zInv < (*this)[x][y];
 }
 
-bool L3D::ZBuffer::replace(unsigned int x, unsigned int y, double zInv) {
-
-    assert(x < width && y < height);
-
+bool L3D::ZBuffer::replace(const unsigned int x, const unsigned int y, const double zInv) {
     if (shouldReplace(x, y, zInv)) {
         (*this)[x][y] = zInv;
         return true;
@@ -696,14 +697,14 @@ bool L3D::ZBuffer::replace(unsigned int x, unsigned int y, double zInv) {
 
 
 
-L3D::LSystem::State::State() {
+L3D::LSystem::State::State() : canReloadSafely(false) {
     currentLoc = Vector3D::point(0, 0, 0);
     H = Vector3D::vector(1, 0, 0);
     L = Vector3D::vector(0, 1, 0);
     U = Vector3D::vector(0, 0, 1);
 }
 
-L3D::LSystem::State::State(const double x, const double y, const double z) {
+L3D::LSystem::State::State(const double x, const double y, const double z) : canReloadSafely(false) {
     currentLoc = Vector3D::point(x, y, z);
     H = Vector3D::vector(1, 0, 0);
     L = Vector3D::vector(0, 1, 0);
@@ -761,7 +762,7 @@ void L3D::LSystem::State::move() {
 
 
 
-L3D::LSystem::LGenerator::LGenerator() : _angle(0) {}
+L3D::LSystem::LGenerator::LGenerator() : _angle(0), _justTunneled(false), _justReloaded(false) {}
 
 L3D::Figure L3D::LSystem::LGenerator::generateFigure(const ini::Configuration &configuration,
                                                      const L2D::Color color,
@@ -781,6 +782,8 @@ void L3D::LSystem::LGenerator::addFaces(const LParser::LSystem3D &lSystem,
 
     _p1 = Vector3D::point(0.0, 0.0, 0.0);
     _p2 = Vector3D::point(0.0, 0.0, 0.0);
+
+    L3DFigure.points.emplace_back(_p1);
 
     // The stack should be empty after each lines generation,
     // but we empty it to avoid accidental large memory consumption
@@ -814,6 +817,12 @@ void L3D::LSystem::LGenerator::recurse(char replacedChar,
     } else if (replacedChar == '|') {
         _state.backFlip();
     } else if (replacedChar == '(') {
+
+        _state.canReloadSafely = !_justTunneled;
+        // in the case of ')(', _state.savedIndex must remain unchanged
+        if (!_justReloaded && _state.canReloadSafely)
+            _state.savedIndex = L3DFigure.points.size()-1;
+
         _savedStates.push(_state);
     } else if (replacedChar == ')') {
         if (_savedStates.empty())
@@ -822,6 +831,10 @@ void L3D::LSystem::LGenerator::recurse(char replacedChar,
 
         _state = _savedStates.top();
         _savedStates.pop();
+
+        // only allow the use of savedIndex if it is safe to do so
+        _justReloaded = _state.canReloadSafely;
+        _justTunneled = false;
     }
         // if recursion necessary, do it
     else if (iterations > 0)
@@ -844,19 +857,26 @@ void L3D::LSystem::LGenerator::recurse(char replacedChar,
         _p2 = _state.currentLoc;
 
         // add a new L3D::Face to the figure
-        L3DFigure.points.emplace_back(_p1);     // TODO duplicates !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if (_justTunneled)
+            L3DFigure.points.emplace_back(_p1);     // TODO duplicates !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         L3DFigure.points.emplace_back(_p2);
 
         L3D::Face newLine = L3D::Face();
-        newLine.point_indexes.emplace_back(L3DFigure.points.size()-2);
+        newLine.point_indexes.emplace_back(_justReloaded ? _state.savedIndex : L3DFigure.points.size()-2);
         newLine.point_indexes.emplace_back(L3DFigure.points.size()-1);
 
         L3DFigure.faces.emplace_back(newLine);
+
+        _justTunneled = false;
+        _justReloaded = false;
 
     } else {
 
         // adjust the current coordinates
         _state.move();
+
+        _justTunneled = true;
+        _justReloaded = false;
     }
 
 

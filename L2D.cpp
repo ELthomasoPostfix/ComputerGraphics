@@ -68,23 +68,17 @@ std::string L2D::Line2D::toString() const {
 
 /// ############## Line2DZ ############## ///
 
-L2D::Line2DZ::Line2DZ(const Vector3D& p1, const Vector3D& p2, double red, double green, double blue)
-                    : L2D::Line2D(p1.x, p1.y, p2.x, p2.y, red, green, blue) {
-    AZ = 1.0 / p1.z;
-    BZ = 1.0 / p2.z;
-}
-
-L2D::Line2DZ::Line2DZ(const L2D::Point2D& p1, double z1,
-                      const L2D::Point2D& p2, double z2,
-                      double red, double green, double blue) : L2D::Line2D(p1, p2, red, green, blue) {
-
-    AZ = z1;
-    BZ = z2;
+L2D::Line2DZ::Line2DZ(const L2D::Point2D& p1, const double z1,
+                      const L2D::Point2D& p2, const double z2,
+                      const double red, const double green, const double blue)
+                      : L2D::Line2D(p1, p2, red, green, blue) {
+    p1Z = z1;
+    p2Z = z2;
 }
 
 std::string L2D::Line2DZ::toString() const {
-    return "( (" + std::to_string(p1.x) + ", " + std::to_string(p1.y) + "), " + std::to_string(AZ) + ", ("
-                 + std::to_string(p2.x) + ", " + std::to_string(p2.y) + "), " + std::to_string(BZ) + ", ("
+    return "( (" + std::to_string(p1.x) + ", " + std::to_string(p1.y) + "), " + std::to_string(p1Z) + ", ("
+                 + std::to_string(p2.x) + ", " + std::to_string(p2.y) + "), " + std::to_string(p2Z) + ", ("
                  + std::to_string(color.red) + ", " + std::to_string(color.green) + ", " + std::to_string(color.blue) + ") )";
 }
 
