@@ -90,7 +90,7 @@ namespace L3D {
      * @param point3D:
      *      The point to be projected.
      */
-    inline L2D::Point2D projectPoint3D(const Vector3D& point3D, double d);
+    L2D::Point2D projectPoint3D(const Vector3D& point3D, double d);
 
 
 
@@ -228,7 +228,7 @@ namespace L3D {
              * @param color:
              *      The color of the lines of the cube.
              */
-            static L3D::Figure createCube(const L2D::Color& color);
+            static L3D::Figure createCube(const L2D::Color& color, bool triangulate);
 
             /*
              * Description:
@@ -269,29 +269,36 @@ namespace L3D {
             /*
              * Description:
              *      Create and return a L3D::Figure dodecahedron which is centered around (0, 0, 0).
-             *      The resultant faces enumerate the involved points in counter clockwise fashion,
-             *      when looking at a face from outside the dodecahedron.
+             *      We do this by first generating a icosahedron and calculating the points of
+             *      the dodecahedron relative to the points of the icosahedron.
+             *      The resultant faces enumerate the involved points in counter clockwise fashion
+             *      when looking at a face from outside the dodecahedron at the center.
              *      !!! Makes use of the input file /engine/3D_Bodies/dodecahedron.ini !!!
              *
              * @param color:
              *      The color of the lines of the dodecahedron.
             */
-            static L3D::Figure createDodecahedron(const L2D::Color& color);
+            static L3D::Figure createDodecahedron(const L2D::Color& color, bool triangulate);
 
             /*
              * Description:
-             *      A function that parses a ini::Configuration file and returns
+             *      A function that parses a pre-made ini::Configuration file based on the type
+             *      of platonic body that is to be generated and returns
              *      the matching basic platonic body in the form of a L3D::Figure.
              *      The ini::configuration files are located at /engine/3D_Bodies/.
-             *      The supported platonic bodies are 'cube', 'tetrahedron' and 'octahedron'.
+             *      The supported basic platonic bodies are of type 'cube', 'tetrahedron' and 'octahedron'.
              *
              * @param color:
              *      The color of each line of the basic platonic body.
              * @param type:
              *      The type of platonic body to create.
              *      The three supported types are 'cube', 'tetrahedron' and 'octahedron'.
+             * @param triangulate:
+             *      Whether or not the faces should be divided into triangles.
+             *      See parseFacesPlatonicBody() for more info.
              */
-            static L3D::Figure createBasicPlatonicBody(const L2D::Color& color, const std::string& type);
+            static L3D::Figure createBasicPlatonicBody(const L2D::Color& color, const std::string& type,
+                                                       bool triangulate = false);
 
             /*
              * Description:
@@ -307,10 +314,14 @@ namespace L3D {
              *      The configuration from which to retrieve n and the height of the cone.
              * @param figureName:
              *      The name by which to address the figure in the configuration.
+             * @param triangulate:
+             *      Whether or not the faces should be divided into triangles.
+             *      See parseFacesPlatonicBody() for more info.
             */
             static L3D::Figure createCone(const L2D::Color &color,
-                                              const ini::Configuration &configuration,
-                                              const std::string& figureName);
+                                          const ini::Configuration &configuration,
+                                          const std::string& figureName,
+                                          bool triangulate);
 
             /*
              * Description:
@@ -326,10 +337,14 @@ namespace L3D {
              *      The configuration from which to retrieve n and the height of the cylinder.
              * @param figureName:
              *      The name by which to address the figure in the configuration.
+             * @param triangulate:
+             *      Whether or not the faces should be divided into triangles.
+             *      See parseFacesPlatonicBody() for more info.
             */
             static L3D::Figure createCylinder(const L2D::Color &color,
-                                                  const ini::Configuration &configuration,
-                                                  const std::string& figureName);
+                                              const ini::Configuration &configuration,
+                                              const std::string& figureName,
+                                              bool triangulate);
 
 
             /*
@@ -372,10 +387,14 @@ namespace L3D {
              *      and m (nr of points on each vertical circle).
              * @param figureName:
              *      The name by which to address the figure in the configuration.
+             * @param triangulate:
+             *      Whether or not the faces should be divided into triangles.
+             *      See parseFacesPlatonicBody() for more info.
             */
             static L3D::Figure createTorus(const L2D::Color& color,
                                            const ini::Configuration& configuration,
-                                           const std::string& figureName);
+                                           const std::string& figureName,
+                                           bool triangulate);
 
 
         /*
@@ -400,15 +419,36 @@ namespace L3D {
             static void parsePointsPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody);
 
             /*
-            * Description:
-            *      Parse the faces in the [Faces] section of configuration and
-            *      add them to the faces member of platonicBody.
-            *
-            * @param configuration:
-            *      The configuration which to parse the faces in.
-            * @param platonicBody:
-            *      The body to which to add the parsed faces.
-            */
+             * Description:
+             *      Triangulate a face into a set of new faces. >e do this based
+             *      on the list point_indexes of the to triangulate face.
+             *      The generated triangle faces will be added into figure.
+             *
+             * @param face:
+             *      The face which to triangulate into triangular faces.
+             * @param figure:
+             *      The figure to which to add the generated faces.
+             */
+            static void triangulateFace(const std::vector<int>& pointIndexes, L3D::Figure& figure);
+
+            /*
+             * Description:
+             *      Parse the faces in the [Faces] section of configuration and
+             *      add them to the faces member of platonicBody.
+             *      This can be done in two ways; triangulated or not.
+             *      If this is done triangulated, then each face will be divided
+             *      into counterclockwise triangles. Else, the normal faces of
+             *      the relevant basic platonic body will be constructed
+             *      (triangles, squares or pentagons). Whether triangulation
+             *      is applied depends on the public member triangulate of the
+             *      L3D::Figure to which to add the faces and whether triangulation
+             *      is possible to perform on the to add face.
+             *
+             * @param configuration:
+             *      The configuration which to parse the faces in.
+             * @param platonicBody:
+             *      The body to which to add the parsed faces.
+             */
             static void parseFacesPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody);
 
             /*
@@ -433,7 +473,7 @@ namespace L3D {
              *      the division.
              */
             static void divisionTriangleFace(unsigned int iterationsLeft,
-                                         const unsigned int Ai, const unsigned int Bi, const unsigned int Ci,
+                                         unsigned int Ai, unsigned int Bi, unsigned int Ci,
                                          const Vector3D& A, const Vector3D& B, const Vector3D& C,
                                          L3D::Figure& sphere);
 
@@ -442,7 +482,27 @@ namespace L3D {
          */
         public:
 
-            explicit Figure(L2D::Color color);
+            explicit Figure(L2D::Color color, bool triangulate = false);
+
+            /*
+             * Description:
+             *      Adds a face to the L3D::Figure.
+             *      If the triangulate member is true and the length of the point_indexes
+             *      list of the to add face is greater than 3, then the face will be triangulated.
+             *      The resulting faces of the triangulation will then be added instead of the
+             *      original to add face. Else, the original to add face will be added.
+             *
+             *      As the faces list is a public member, it is still possible to manually insert
+             *      a face. This function is intended to be used if the to add face
+             *      may need to be triangulated before insertion.
+             *
+             * @param newFace:
+             *      The to add face. This face may be triangulated if asked and possible.
+             * @return:
+             *      If the face was triangulated, "true" is returned.
+             *      If (he face was not triangulated, "false" is returned.
+             */
+            bool addFace(const L3D::Face& newFace);
 
             /*
              * Description:
@@ -498,6 +558,7 @@ namespace L3D {
             std::vector<Vector3D> points;
             std::vector<Face> faces;
             L2D::Color color;
+            const bool triangulate;
     };
 
 

@@ -5,7 +5,6 @@
 #include "L2D.h"
 
 
-
 /// ############## Color ############## ///
 
 L2D::Color::Color(const double red, const double green, const double blue) {
@@ -23,6 +22,11 @@ L2D::Point2D::Point2D(const double x, const double y) {
     this->y = y;
 }
 
+L2D::Point2D::Point2D() {
+    this->x = 0;
+    this->y = 0;
+}
+
 void L2D::Point2D::operator *=(double factor) {
     this->x *= factor;
     this->y *= factor;
@@ -31,6 +35,10 @@ void L2D::Point2D::operator *=(double factor) {
 void L2D::Point2D::operator +=(L2D::Point2D& p2) {
     this->x += p2.x;
     this->y += p2.y;
+}
+
+L2D::Point2D L2D::Point2D::operator+(const L2D::Point2D& p2) {
+    return L2D::Point2D(this->x + p2.x, this->y + p2.y);
 }
 
 
@@ -49,6 +57,15 @@ L2D::Line2D::Line2D(double x1, double y1, double x2, double y2,
     p2(x2, y2),
     color(red, green, blue) {}
 
+double L2D::Line2D::slope() const {
+    if (p1.x == p2.x) {
+        if (p1.y < p2.y)
+            return std::numeric_limits<double>::infinity();
+        return -std::numeric_limits<double>::infinity();
+    }
+    return (double)(p2.y - p1.y) / (double)(p2.x - p1.x);
+}
+
 void L2D::Line2D::operator *=(double factor) {
     p1 *= factor;
     p2 *= factor;
@@ -64,6 +81,7 @@ std::string L2D::Line2D::toString() const {
                + std::to_string(p2.x) + ", " + std::to_string(p2.y) + "), ("
                + std::to_string(color.red) + ", " + std::to_string(color.green) + ", " + std::to_string(color.blue) + ") )";
 }
+
 
 
 /// ############## Line2DZ ############## ///
@@ -100,18 +118,9 @@ L2D::LSystem::State::State(const double initialX, const double initialY, const d
 
 L2D::LSystem::LGenerator::LGenerator() : _p1(0, 0), _p2(0, 0), _state(0, 0, 0) {}
 
-// function found in engine.cc
-// creates an img::EasyImage and draws the passed list of lines onto it
-img::EasyImage drawLines2D(const L2D::Lines2D& lines, double size, img::Color bgColor);
-
-
-img::EasyImage L2D::LSystem::LGenerator::generateImage(const ini::Configuration &configuration,
+L2D::Lines2D L2D::LSystem::LGenerator::generateLines(const ini::Configuration &configuration,
                                                        const LParser::LSystem2D& lSystem) {
 
-    // properties for creating the easy image
-
-    const std::vector<double> bgColor = configuration["General"]["backgroundcolor"];
-    img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(1)*255.0, bgColor.at(2)*255.0);
 
     const std::vector<double> lnColor = configuration["2DLSystem"]["color"];
     img::Color lncolor(lnColor.at(0)*255.0, lnColor.at(1)*255.0, lnColor.at(2)*255.0);
@@ -124,7 +133,7 @@ img::EasyImage L2D::LSystem::LGenerator::generateImage(const ini::Configuration 
 
     generateLines(lSystem, lncolor, lines);
 
-    return drawLines2D(lines, size, bgcolor);
+    return lines;
 }
 
 void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,

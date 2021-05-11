@@ -100,7 +100,7 @@ Matrix L3D::eyePointTransMatrix(const Vector3D& eye) {
     return eyeTransManual;
 }
 
-inline L2D::Point2D L3D::projectPoint3D(const Vector3D& point3D, const double d) {
+L2D::Point2D L3D::projectPoint3D(const Vector3D& point3D, const double d) {
 
     return { d * point3D.x / (-point3D.z),
              d * point3D.y / (-point3D.z) };
@@ -125,7 +125,6 @@ void L3D::Face::addToLines2D(L2D::Lines2D& lines2D,
                                          projectPoint3D(p2, projectionScreenDistance),
                                          color.red, color.green, color.blue));
     } else {
-        // TODO if a point index pair is found in multiple faces, then we make a line for each occurrence !!! =! good
         unsigned i2 = 1;
         for (unsigned int i1 = 0; i1 < point_indexes.size(); i1++) {
 
@@ -230,15 +229,14 @@ L3D::Figure L3D::Figure::createLineDrawingFigure(const L2D::Color& color,
     }
 
     // add all faces to the figure
-    // TODO find the actual faces, instead of making each line a face of its own
-    std::vector<int> points = {};
+    std::vector<int> line = {};
     for (unsigned int lineIndex = 0; lineIndex < (unsigned int) configuration[figureName]["nrLines"].as_int_or_die(); lineIndex++) {
 
         L3D::Face newFace;
 
-        points = configuration[figureName]["line" + std::to_string(lineIndex)].as_int_tuple_or_die();
-        newFace.point_indexes.emplace_back(points.at(0));
-        newFace.point_indexes.emplace_back(points.at(1));
+        line = configuration[figureName]["line" + std::to_string(lineIndex)].as_int_tuple_or_die();
+        newFace.point_indexes.emplace_back(line.at(0));
+        newFace.point_indexes.emplace_back(line.at(1));
 
         newFigure.faces.emplace_back(newFace);
     }
@@ -246,8 +244,8 @@ L3D::Figure L3D::Figure::createLineDrawingFigure(const L2D::Color& color,
     return newFigure;
 }
 
-L3D::Figure L3D::Figure::createCube(const L2D::Color& color) {
-    return createBasicPlatonicBody(color, "cube");
+L3D::Figure L3D::Figure::createCube(const L2D::Color& color, const bool triangulate) {
+    return createBasicPlatonicBody(color, "cube", triangulate);
 }
 
 L3D::Figure L3D::Figure::createTetrahedron(const L2D::Color& color) {
@@ -281,15 +279,17 @@ L3D::Figure L3D::Figure::createIcosahedron(const L2D::Color &color) {
     newIcosahedron.points.emplace_back(Vector3D::point(0, 0, - std::sqrt(5.0) / 2.0)); // bottom point
 
 
-    // parse the faces for the icosahedron
+    // Parse the faces for the icosahedron.
+    // A icosahedron is already made up of triangles,
+    // sp triangulating it has no meaning.
     parseFacesPlatonicBody(configuration, newIcosahedron);
 
     return newIcosahedron;
 }
 
-L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color) {
+L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color, const bool triangulate) {
 
-    L3D::Figure newDodecahedron = L3D::Figure(color);
+    L3D::Figure newDodecahedron = L3D::Figure(color, triangulate);
 
     ini::Configuration configuration;
     std::ifstream fin("../3D_Bodies/dodecahedron.ini");
@@ -322,9 +322,10 @@ L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color) {
 
 L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
                                         const ini::Configuration &configuration,
-                                        const std::string& figureName) {
+                                        const std::string& figureName,
+                                        const bool triangulate) {
 
-    L3D::Figure newCone = L3D::Figure(color);
+    L3D::Figure newCone = L3D::Figure(color, triangulate);
     const int n = configuration[figureName]["n"].as_int_or_die();
     const double height = configuration[figureName]["height"].as_double_or_die();
 
@@ -341,7 +342,10 @@ L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
         newFace.point_indexes.at(n - 1 - p) = p;    // index value decreases from left to right
     }
 
-    newCone.faces.emplace_back(newFace);    // bottom face
+
+    // Triangulate the bottom face if needed
+    newCone.addFace(newFace);
+
     newCone.points.emplace_back(Vector3D::point(0, 0, height)); // top point
 
     // generate the faces for the cone
@@ -364,9 +368,10 @@ L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
 
 L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
                                         const ini::Configuration &configuration,
-                                        const std::string& figureName) {
+                                        const std::string& figureName,
+                                        const bool triangulate) {
 
-    L3D::Figure newCylinder = L3D::Figure(color);
+    L3D::Figure newCylinder = L3D::Figure(color, triangulate);
     const int n = configuration[figureName]["n"].as_int_or_die();
     const double height = configuration[figureName]["height"].as_double_or_die();
 
@@ -382,16 +387,16 @@ L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
         newCylinder.points.emplace_back(Vector3D::point(std::cos(p * c), std::sin(p * c), 0));
         newFace.point_indexes.at(n - 1 - p) = p;    // index value decreases from left to right
     }
-    newCylinder.faces.emplace_back(newFace);    // bottom face
+    newCylinder.addFace(newFace);
 
     // top face points
     for (unsigned int p = 0; p < (unsigned int) n; p++) {
         newCylinder.points.emplace_back(Vector3D::point(newCylinder.points.at(p).x, newCylinder.points.at(p).y, height));
         newFace.point_indexes.at(p) = p + n; // index value increases from left to right
     }
-    newCylinder.faces.emplace_back(newFace);    // top face
+    newCylinder.addFace(newFace);
 
-    // generate the faces for the cone
+    // generate the faces for the cone<<
     newFace.point_indexes.resize(4);
     for (unsigned int pointIndex = 0; pointIndex < ((unsigned int) n) - 1; pointIndex++) {
         newFace.point_indexes.at(0) = pointIndex;           // pi           bottom left
@@ -399,7 +404,7 @@ L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
         newFace.point_indexes.at(2) = pointIndex + n + 1;   // pi+n+1       top right
         newFace.point_indexes.at(3) = pointIndex + n;       // pi+n         top left
 
-        newCylinder.faces.emplace_back(newFace);
+        newCylinder.addFace(newFace);
     }
 
     // add the last face with points [p0, pn-1, pn+1]
@@ -408,7 +413,7 @@ L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
     newFace.point_indexes.at(2) = n;            // pi+n+1       top right,     first point of top face
     newFace.point_indexes.at(3) = (2*n) - 1;    // pi+n         top left,      last point of top face
 
-    newCylinder.faces.emplace_back(newFace);
+    newCylinder.addFace(newFace);
 
     return newCylinder;
 }
@@ -450,13 +455,14 @@ L3D::Figure L3D::Figure::createSphere(const L2D::Color &color,
     return newSphere;
 }
 
-L3D::Figure L3D::Figure::createBasicPlatonicBody(const L2D::Color& color, const std::string& type) {
+L3D::Figure L3D::Figure::createBasicPlatonicBody(const L2D::Color& color, const std::string& type,
+                                                 const bool triangulate) {
 
     // return an empty L3D::Figure
     if (type != "cube" && type != "tetrahedron" && type != "octahedron")
         return L3D::Figure(color);
 
-    L3D::Figure newPlatonicBody = L3D::Figure(color);
+    L3D::Figure newPlatonicBody = L3D::Figure(color, triangulate);
     ini::Configuration configuration;
 
     std::ifstream fin("../3D_Bodies/" + type + ".ini");
@@ -484,6 +490,23 @@ void L3D::Figure::parsePointsPlatonicBody(const ini::Configuration& configuratio
     }
 }
 
+void L3D::Figure::triangulateFace(const std::vector<int>& pointIndexes, L3D::Figure &figure) {
+
+    L3D::Face newFace = L3D::Face();
+    newFace.point_indexes.resize(3);
+
+    // Choose the first point in the face as the common point between
+    // all generated triangular faces.
+    // Then, divide the face into triangles based on that base point.
+    newFace.point_indexes.at(0) = pointIndexes.at(0);
+    for (unsigned int i = 1; i+1 < pointIndexes.size(); i++) {
+        newFace.point_indexes.at(1) = pointIndexes.at(i);
+        newFace.point_indexes.at(2) = pointIndexes.at(i+1);
+
+        figure.faces.emplace_back(newFace);
+    }
+}
+
 void L3D::Figure::parseFacesPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody) {
 
     std::vector<int> face = {};
@@ -493,10 +516,8 @@ void L3D::Figure::parseFacesPlatonicBody(const ini::Configuration& configuration
 
         face = configuration["Faces"]["face" + std::to_string(faceIndex)].as_int_tuple_or_die();
 
-        for (int & pointIndex : face)
-            newFace.point_indexes.emplace_back(pointIndex);
-
-        platonicBody.faces.emplace_back(newFace);
+        newFace.point_indexes = face;
+        platonicBody.addFace(newFace);
     }
 }
 
@@ -550,17 +571,17 @@ void L3D::Figure::divisionTriangleFace(const unsigned int iterationsLeft,
         for (unsigned int i = 0; i < 12; i+=3) {
             divisionTriangleFace(iterationsLeft - 1,
                                  triangleIndexes[i],  triangleIndexes[i+1],   triangleIndexes[i+2],
-                               *triangleVertexes[i], *triangleVertexes[i+1], *triangleVertexes[i+2],
-                             sphere);
+                                 *triangleVertexes[i], *triangleVertexes[i+1], *triangleVertexes[i+2],
+                                 sphere);
         }
     }
 
 }
 
 L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configuration &configuration,
-                                     const std::string &figureName) {
+                                     const std::string &figureName, const bool triangulate) {
 
-    L3D::Figure newTorus = L3D::Figure(color);
+    L3D::Figure newTorus = L3D::Figure(color, triangulate);
 
     // Distance from center of the hole of the torus to center of the tube of the torus.
     double R = configuration[figureName]["R"].as_double_or_die();
@@ -591,7 +612,7 @@ L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configu
         }
     }
 
-    // generate the planes
+    // generate the faces
     L3D::Face newFace = L3D::Face();
     newFace.point_indexes.resize(4);
     unsigned int fcircBaseInd = 0;  // The index of the first point of the first circle (vertical circle i)
@@ -603,7 +624,7 @@ L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configu
             newFace.point_indexes.at(2) = scircBaseInd + ((pointIndex != m-1) ? (pointIndex + 1) : 0) ;  // p_{ i+1, j+1 }
             newFace.point_indexes.at(3) = fcircBaseInd + ((pointIndex != m-1) ? (pointIndex + 1) : 0);  // p_{ i  , j+1 }
 
-            newTorus.faces.emplace_back(newFace);
+            newTorus.addFace(newFace);
         }
 
         fcircBaseInd = scircBaseInd;
@@ -617,7 +638,18 @@ L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configu
 }
 
 
-L3D::Figure::Figure(L2D::Color color) : color(color) {}
+L3D::Figure::Figure(L2D::Color color, const bool triangulate) : color(color), triangulate(triangulate) { }
+
+bool L3D::Figure::addFace(const L3D::Face &newFace) {
+
+    if (triangulate && newFace.point_indexes.size() >= 3) {
+        triangulateFace(newFace.point_indexes, *this);
+        return true;
+    }
+
+    faces.emplace_back(newFace);
+    return false;
+}
 
 void L3D::Figure::applyTransformation(const Matrix &M) {
 

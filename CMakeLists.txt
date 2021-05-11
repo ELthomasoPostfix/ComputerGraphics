@@ -18,6 +18,7 @@ set(engine_sources
 	utils/easy_image.cc
 	utils/ini_configuration.h
 	utils/ini_configuration.cc
+	utils/utils.h
 	utils/utils.cpp
 	utils/l_parser.h
 	utils/l_parser.cc
@@ -29,7 +30,12 @@ set(engine_sources
 	L2D.cpp
 	L3D.h
 	L3D.cpp
-	engine.cc utils/utils.h L3D.cpp L3D.h)
+	ImageSpecifications.h
+	ImageSpecifications.cpp
+	ImageGenerator.cpp
+	ImageGenerator.h
+
+	engine.cc)
 
 ############################################################
 # Create an executable

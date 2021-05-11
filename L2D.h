@@ -26,13 +26,18 @@
 
 
 
-
 namespace L2D {
 
     class Line2D;
     using Lines2D = std::list<Line2D>;
     class Line2DZ;
     using Lines2DZ = std::list<Line2DZ>;
+
+    namespace ImageGenerator {
+        img::EasyImage drawLines2D(const L2D::Lines2D& lines, double size, img::Color bgColor);
+    }
+
+
 
 
     class Color {
@@ -50,9 +55,13 @@ namespace L2D {
         public:
             Point2D(double x, double y);
 
+            Point2D();
+
             void operator *=(double factor);
 
             void operator +=(L2D::Point2D& p2);
+
+            L2D::Point2D operator +(const L2D::Point2D& p2);
 
     public:
             double x;
@@ -67,6 +76,14 @@ namespace L2D {
 
             Line2D(double x1, double y1, double x2, double y2,
                    double red, double green, double blue);
+
+            /*
+             * Description:
+             *      Calculate the slope of the L2D::line2D. We calculate it as follows:
+             *          y2 - y1 / x2 - x1
+             *      In the case that x1 == x2, we return +infinity if y1 < y2, else -infinity.
+             */
+            double slope() const;
 
             void operator *=(double factor);
 
@@ -217,7 +234,7 @@ namespace L2D {
              *      The lSystem based on which to generate the lines to draw
              *      onto the img::EasyImage.
              */
-            img::EasyImage generateImage(const ini::Configuration &configuration, const LParser::LSystem2D& lSystem);
+            L2D::Lines2D generateLines(const ini::Configuration &configuration, const LParser::LSystem2D& lSystem);
 
 
         private:
