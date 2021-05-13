@@ -20,8 +20,8 @@ X: Niet werkend of niet geïmplementeerd
 |   | Torus                     | V |
 |   | 3D L-systemen             | V |
 | 4 | Z-buffering (lijnen)      | - |
-| 5 | Triangulatie              |   |
-|   | Z-buffering (driehoeken)  |   |
+| 5 | Triangulatie              | V |
+|   | Z-buffering (driehoeken)  | x |
 | 6 | 3D fractalen              |   |
 |   | BuckyBall                 |   |
 |   | Mengerspons               |   |
@@ -43,6 +43,7 @@ Geïmplementeerde vorm van texture mapping: ...
 * ZBuffering met lijnen: in de tekeningen waar enkel kubussen aanwezig zijn, kan men sommige foutjes terug vinden in de overlappingen. 
     + z_buffered_wireframes038.ini 
     + z_buffered_wireframes115.ini
+* ZBuffering met driehoeken: het crasht met een of andere memory fout wanneer de draw_zbuff_triag() for loop wordt uitgevoerd. Als dit uitgecomment is, dan worden de lege (zwarte achtergrond) .bmp bestanden wel gegenereerd
 
 ## Niet-gequoteerde functionaliteit
 ...

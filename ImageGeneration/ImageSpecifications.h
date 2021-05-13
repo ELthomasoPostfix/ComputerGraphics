@@ -5,7 +5,7 @@
 #ifndef ENGINE_IMAGESPECIFICATIONS_H
 #define ENGINE_IMAGESPECIFICATIONS_H
 
-#include "L3D.h"
+#include "../Geometry/L3D.h"
 
 
 /*

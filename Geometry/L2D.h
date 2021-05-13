@@ -5,11 +5,11 @@
 #ifndef ENGINE_L2D_H
 #define ENGINE_L2D_H
 
-#include "vector/vector3d.h"
-#include "utils/easy_image.h"
-#include "utils/ini_configuration.h"
-#include "utils/l_parser.h"
-#include "utils/utils.h"
+#include "../vector/vector3d.h"
+#include "../utils/easy_image.h"
+#include "../utils/ini_configuration.h"
+#include "../utils/l_parser.h"
+#include "../utils/utils.h"
 
 #include <string>
 #include <list>

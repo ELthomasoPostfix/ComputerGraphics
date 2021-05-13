@@ -1,6 +1,6 @@
 #include "utils/ini_configuration.h"
 #include "utils/l_parser.h"
-#include "ImageGenerator.h"
+#include "ImageGeneration/ImageGenerator.h"
 
 
 
