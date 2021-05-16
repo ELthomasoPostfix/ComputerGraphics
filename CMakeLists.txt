@@ -26,14 +26,15 @@ set(engine_sources
 	vector/vector3d.h
 	vector/vector3d.cc
 
-		Geometry/L2D.h
-		Geometry/L2D.cpp
-		Geometry/L3D.h
-		Geometry/L3D.cpp
-        ImageGeneration/ImageSpecifications.h
-        ImageGeneration/ImageSpecifications.cpp
-        ImageGeneration/ImageGenerator.cpp
-        ImageGeneration/ImageGenerator.h
+	Geometry/L2D.h
+	Geometry/L2D.cpp
+	Geometry/L3D.h
+	Geometry/L3D.cpp
+
+	ImageGeneration/ImageSpecifications.h
+	ImageGeneration/ImageSpecifications.cpp
+	ImageGeneration/ImageGenerator.h
+	ImageGeneration/ImageGenerator.cpp
 
 	engine.cc)
 
