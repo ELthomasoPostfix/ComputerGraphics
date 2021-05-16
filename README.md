@@ -41,7 +41,7 @@ Geïmplementeerde vorm van texture mapping: ...
 ## Gekende problemen 
 
 * ZBuffering met lijnen: in de tekeningen waar enkel kubussen aanwezig zijn, kan men sommige foutjes terug vinden in de overlappingen. 
-    + z_buffered_wireframes038.ini 
+    + z_buffered_wireframes028.ini 
     + z_buffered_wireframes115.ini
 * ZBuffering met driehoeken: het crasht met een of andere memory fout wanneer de draw_zbuff_triag() for loop wordt uitgevoerd. Als dit uitgecomment is, dan worden de lege (zwarte achtergrond) .bmp bestanden wel gegenereerd
 
