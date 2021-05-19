@@ -113,14 +113,15 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
         pxCount = std::max(y0, y1) - std::min(y0, y1) + 1;
         pxNr = pxCount - 1;
 
-        // The pixels will be coloured in the order of the smallest to the largest of y0, y1,
-        // so we make sure that the smallest of the two's zInv is in z0Inv.
+        // The pixels will be coloured in the order of the smallest to the largest of {y0, y1},
+        // so we make sure that the smallest of the two y's zInv is in z0Inv.
         if (y1 < y0)
             std::swap(z0Inv, z1Inv);
 
         // special case for x0 == x1
         for (unsigned int i = std::min(y0, y1); i <= std::max(y0, y1); i++)
         {
+            // interpolate chooses z0Inv if pxNr = pxCount - 1
             zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
             if (ZBuffer.replace(x0, i, zInv))
                 img(x0, i) = color;
@@ -140,6 +141,7 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
         // special case for y0 == y1
         for (unsigned int i = std::min(x0, x1); i <= std::max(x0, x1); i++)
         {
+            // interpolate chooses z0Inv if pxNr = pxCount - 1
             zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
             if (ZBuffer.replace(i, y0, zInv))
                 img(i, y0) = color;
@@ -169,6 +171,7 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
                 x = x0 + i;
                 y = (unsigned int) roundToInt((double) y0 + m * (double) i);
 
+                // interpolate chooses z0Inv if pxNr = pxCount - 1
                 zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
@@ -185,6 +188,7 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
                 x = (unsigned int) roundToInt((double) x0 + ((double) i / m));
                 y = y0 + i;
 
+                // interpolate chooses z0Inv if pxNr = pxCount - 1
                 zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
@@ -201,6 +205,7 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
                 x = (unsigned int) roundToInt((double) x0 - ((double) i / m));
                 y = y0 - i;
 
+                // interpolate chooses z0Inv if pxNr = pxCount - 1
                 zInv = interpolate(pxNr, pxCount, z0Inv, z1Inv);
                 if (ZBuffer.replace(x, y, zInv))
                     img(x, y) = color;
@@ -218,12 +223,9 @@ void ImageGenerator::draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D
 
     Vector3D u = B - A;
     Vector3D v = C - A;
-    Vector3D w = Vector3D();
-    w.x = u.y*v.z - u.z*v.y;
-    w.y = u.z*v.x - u.x*v.z;
-    w.z = u.x*v.y - u.y*v.x;
+    Vector3D w = Vector3D::cross(u, v);
 
-    const double k = w.x*A.x + w.y*A.y + w.z*A.z;
+    const double k = Vector3D::dot(w, A);
     const double dzdx = w.x / ( - specs.projectionScreenDistance * k);
     const double dzdy = w.y / ( - specs.projectionScreenDistance * k);
 
@@ -241,21 +243,24 @@ void ImageGenerator::draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D
     const double yg = (AProj.y + BProj.y + CProj.y) / 3.0;
     const double zgInv = 1.0/3.0 * (1.0/A.z + 1.0/B.z + 1.0/C.z);
 
-    std::vector<L2D::Point2D*> edgePoints = {
+
+    L2D::Point2D* edgePoints[6] = {
             &AProj, &BProj,
             &AProj, &CProj,
             &BProj, &CProj
     };
 
-    std::vector<double> intersections = {
-              infty,   infty,   infty,
-            - infty, - infty, - infty
-    };
-
     const L2D::Point2D* p1;
     const L2D::Point2D* p2;
 
+
     for (unsigned int yCurr = yMin; yCurr <= yMax; yCurr++) {
+
+        double intersections[6] = {
+                infty,   infty,   infty,
+                - infty, - infty, - infty
+        };
+
         // Find the two intersections.
         for (unsigned int i = 0; i < 5; i += 2) {
             p1 = edgePoints[i];
@@ -265,22 +270,18 @@ void ImageGenerator::draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D
                 if (p1->y != p2->y) {
                     if ((yCurr - p1->y)*(yCurr - p2->y) <= 0) {
                         const double intersec = findIntersectionX(yCurr, *p1, *p2);
-                        intersections[i]   = intersec;
-                        intersections[i+3] = intersec;
+                        unsigned int index1 = i/2;
+                        unsigned int index2 = index1 + 3;
+                        intersections[index1] = intersec; // 0 1 2
+                        intersections[index2] = intersec; // 3 4 5
                     }
                 } else      // If [p1 p2] is a horizontal edge, then we ignore it when finding any intersections.
                     edgePoints[i] = nullptr;
             }
         }
 
-        const unsigned int xL = (unsigned int) std::min(std::min(intersections[0], intersections[1]), intersections[2]);
-        const unsigned int xR = (unsigned int) std::max(std::max(intersections[3], intersections[4]), intersections[5]);
-        intersections[0] = infty;
-        intersections[1] = infty;
-        intersections[2] = infty;
-        intersections[3] = - infty;
-        intersections[4] = - infty;
-        intersections[5] = - infty;
+        const unsigned int xL = roundToInt(std::min(std::min(intersections[0], intersections[1]), intersections[2]) + 0.5);
+        const unsigned int xR = roundToInt(std::max(std::max(intersections[3], intersections[4]), intersections[5]) - 0.5);
 
         const double zInvCte = 1.0001 * zgInv;
 
@@ -387,8 +388,8 @@ double ImageGenerator::findIntersectionX(const double yi, const L2D::Point2D& A,
 
     double xLeft = std::min(A.x, B.x);
     double xRight = std::max(A.x, B.x);
-    double yUpper = std::min(A.y, B.y);
-    double yLower = std::max(A.y, B.y);
+    double yUpper = std::max(A.y, B.y);
+    double yLower = std::min(A.y, B.y);
 
     double slope;
     if (A.x == B.x)
