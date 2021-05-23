@@ -92,10 +92,246 @@ namespace L3D {
      */
     L2D::Point2D projectPoint3D(const Vector3D& point3D, double d);
 
+    /*
+     * Description:
+     *      Try finding the Vector3D that the pixel (x, y) was projected onto.
+     *
+     * @param z:
+     *      The z value of the projected pixel, in 3D space.
+     * @param d:
+     *      The distance to the projection screen, from the eye-point.
+     */
+    Vector3D recreatePoint3D(double x, double y, double z, double d);
 
 
     class Figure;
     typedef std::list<Figure> Figures3D;
+    class Light;
+    typedef std::list<Light*> Lights3D;
+
+
+    /*
+     * Description:
+     *      The base class of 3D light sources.
+     *
+     * @param ambientIntensity:
+     *      The ambient light intensity. Each of its rgb values is between 0.0 and 1.0.
+     * @param diffuseIntensity:
+     *      The diffuse light intensity. Each of its rgb values is between 0.0 and 1.0.
+     * @param specularIntensity:
+     *      The specular light intensity. Each of its rgb values is between 0.0 and 1.0.
+     */
+    class Light {
+        public:
+            Light(const L2D::Color& ambient, const L2D::Color& diffuse, const L2D::Color& specular);
+
+            virtual L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity) const;
+
+            virtual L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity,
+                                                      double x, double y, double z, double d) const;
+
+            const L2D::Color& getAmbientIntensity() const;
+
+            const L2D::Color& getDiffuseIntensity() const;
+
+            const L2D::Color& getSpecularIntensity() const;
+
+            bool isInfLight() const;
+
+            bool isPointLight() const;
+
+            virtual void applyTransformation(const Matrix& matrix);
+
+        private:
+            virtual unsigned int getType() const;
+
+        private:
+            L2D::Color _ambientIntensity;
+            L2D::Color _diffuseIntensity;
+            L2D::Color _specularIntensity;
+    };
+
+    /*
+     * Description:
+     *      A class representing a light source at an infinite distance to
+     *      the figures. Each ray of light cast by the source goes in the same
+     *      direction.
+     *
+     * @param ldVector:
+     *      The directional vector each ray of light is cast in.
+     *      This vector is stored in a normalized form.
+     */
+    class InfLight : public Light {
+        public:
+            InfLight(const L2D::Color& ambient, const L2D::Color& diffuse, const L2D::Color& specular,
+                     const Vector3D& ldVector);
+
+            /*
+             * Description:
+             *      Calculate the diffuse contribution this light source has on a
+             *      face, taking into account the passed parameters.
+             *
+             * @param normalizedNormal:
+             *      The normalized normal vector of the face for which to calculate this
+             *      light source's diffuse contribution.
+             * @param diffuseReflectivity:
+             *      The diffuse reflectivity component of the face for which to calculate the
+             *      diffuse contribution.
+             */
+            L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity) const override;
+
+            /*
+             * Description:
+             *      Apply a transformation matrix to all L3D::InfLights and
+             *      L3D::PointLights.
+             *
+             * @param matrix:
+             *      The transformation matrix to be applied.
+             */
+            void applyTransformation(const Matrix& matrix) override;
+
+    private:
+        unsigned int getType() const override;
+
+    private:
+            Vector3D _ldVector;
+    };
+
+    /*
+     * Description:
+     *      A class representing a light source located inside of the 3D scene.
+     *      It shines rays of light into every direction.
+     *
+     * @param location:
+     *      The location of the L3D::PointLight inside the scene.
+     * @param spotAngle:
+     *      TODO   description
+     *      This angle is stored in Radians.
+     */
+    class PointLight : public Light {
+        public:
+            PointLight(const L2D::Color &ambient, const L2D::Color &diffuse, const L2D::Color &specular,
+                       const Vector3D& location, double spotAngle);
+
+            L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity) const override;
+
+            L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity,
+                                              double x, double y, double z, double d) const override;
+
+            void applyTransformation(const Matrix& matrix) override;
+
+    private:
+        unsigned int getType() const override;
+
+    private:
+            Vector3D _location;
+            double _spotAngle;
+    };
+
+    /*
+     * Description:
+     *      A class that keeps track of all light sources in the 3D space.
+     *      It also has internal attributes to store the reflective components of
+     *      the figure for which to calculate the results of diffuse and specular
+     *      lighting.
+     *
+     * @member lightSources:
+     *      The light sources in the 3D space.
+     * @member _ambientResult:
+     *      The ambient component used to calculate the result.
+     *      Gets recalculated each time it should be modified.
+     * @member _diffuseResult:
+     *      The diffuse component used to calculate the result.
+     *      Gets built upon each time it should be modified.
+     *      Can be reset.
+     * @member _specularResult:
+     *      The specular component used to calculate the result.
+     *      Gets built upon each time it should be modified.
+     *      Can be reset.
+     * @member _diffuseReflectivity:
+     *      Internal diffuse reflectivity factor used to modify the
+     *      stored diffuse light result.
+     *      Should be set to correct value before the diffuse component is
+     *      recalculated.
+     * @member _specularReflectivity:
+     *      Internal specular reflectivity factor used to modify the
+     *      stored specular light result.
+     *      Should be set to correct value before the diffuse component is
+     *      recalculated.
+     * @member _reflectionCoefficient:
+     *      Reflective component used for spot lights.
+     */
+    class LightCaster {
+        public:
+            LightCaster();
+
+            ~LightCaster();
+
+            L2D::Color getResultColor() const;
+
+            L2D::Color getClampedResultColor() const;
+
+            /*
+             * Description:
+             *      Set the internal reflectivity components to the reflectivity components of
+             *      the figure. They are used in calculating diffuse and specular light.
+             *      The stored components are the diffuse and specular reflection components,
+             *      along with the reflectionCoefficient.
+             *
+             * @param figure:
+             *      The figure whose reflectivity components are copied.
+             */
+            void setReflectivityComponents(const L3D::Figure& figure);
+
+            /*
+             * Description:
+             *      The light caster recalculates its internal ambient
+             *      result. This result can then be used to calculate the
+             *      complete result color.
+             *
+             * @param figure:
+             *      The figure onto which to cast the light.
+             *      Ambient light is only dependent on the reflective properties
+             *      of the figure onto which to cast the light and the intensity
+             *      of the internal light sources, L3D::Lights3D.
+             */
+            void recalculateAmbientResult(const L3D::Figure& figure);
+
+            /*
+             * Description:
+             *      Recalculate the sum total diffuse contribution of all L3D::InfLights.
+             *
+             * @param normalizedNormal:
+             *      The normalized normal vector on the face we want to recalculate
+             *      the L3D::InfLight diffuse contributions for.
+             */
+            void recalculateInfDiffuseResult(const Vector3D& normalizedNormal);
+
+            void recalculatePointDiffuseResult(const Vector3D& normalizedNormal, double x,
+                                               double y, double z, double d);
+
+            void recalculateSpecularResult();
+
+            /*
+             * Description:
+             *      Reset the rgb of the internal specular result to (0.0, 0.0, 0.0), black.
+             */
+            void resetSpecularResult();
+
+            void applyTransformation(const Matrix& matrix);
+
+        public:
+            L3D::Lights3D lightSources;
+        private:
+            L2D::Color _ambientResult;
+            L2D::Color _infDiffuseResult;
+            L2D::Color _pointDiffuseResult;
+            L2D::Color _specularResult;
+            const L2D::Color* _diffuseReflectivity;
+            const L2D::Color* _specularReflectivity;
+            double _reflectionCoefficient;
+    };
+
 
     /*
      * Description:
@@ -178,7 +414,6 @@ namespace L3D {
             std::vector<int> point_indexes;
     };
 
-
     /*
      * Description:
      *      A figure is a collection of 3D points in space,
@@ -192,9 +427,14 @@ namespace L3D {
      *      to represent the points as vectors.
      * @member faces:
      *      The list of faces which make up the Figure.
-     *
-     * @member color:
-     *      The color of each of the lines of the face.
+     * @member ambientReflectivity:
+     *      The ambient light reflection factor.
+     * @member diffuseReflectivity:
+     *      The diffuse light reflection factor.
+     * @member specularReflectivity:
+     *      The specular light reflection factor.
+     * @member triangulate:
+     *      Whether or not to triangulate each face of this L3D::Figure.
      */
     class Figure {
         /*
@@ -206,15 +446,12 @@ namespace L3D {
              * Description:
              *      Create and return a L3D::Figure based on the lineDrawing format.
              *
-             * @param color:
-             *      The color of each of the lines.
              * @param configuration:
              *      The configuration from which to parse the lines/faces.
              * @param figureName:
              *      The name by which to address the figure in the configuration.
              */
-            static L3D::Figure createLineDrawingFigure(const L2D::Color& color,
-                                                       const ini::Configuration& configuration,
+            static L3D::Figure createLineDrawingFigure(const ini::Configuration& configuration,
                                                        const std::string& figureName);
 
             /*
@@ -225,10 +462,8 @@ namespace L3D {
              *      when looking at a face from outside the cube.
              *      !!! Makes use of the input file /engine/3D_Bodies/cube.ini !!!
              *
-             * @param color:
-             *      The color of the lines of the cube.
              */
-            static L3D::Figure createCube(const L2D::Color& color, bool triangulate);
+            static L3D::Figure createCube(bool triangulate);
 
             /*
              * Description:
@@ -237,10 +472,8 @@ namespace L3D {
              *      when looking at a face from outside the tetrahedron.
              *      !!! Makes use of the input file /engine/3D_Bodies/tetrahedron.ini !!!
              *
-             * @param color:
-             *      The color of the lines of the tetrahedron.
              */
-            static L3D::Figure createTetrahedron(const L2D::Color& color);
+            static L3D::Figure createTetrahedron();
 
             /*
              * Description:
@@ -249,10 +482,8 @@ namespace L3D {
              *      when looking at a face from outside the octahedron.
              *      !!! Makes use of the input file /engine/3D_Bodies/octahedron.ini !!!
              *
-             * @param color:
-             *      The color of the lines of the octahedron.
             */
-            static L3D::Figure createOctahedron(const L2D::Color& color);
+            static L3D::Figure createOctahedron();
 
             /*
              * Description:
@@ -261,10 +492,8 @@ namespace L3D {
              *      when looking at a face from outside the icosahedron.
              *      !!! Makes use of the input file /engine/3D_Bodies/icosahedron.ini !!!
              *
-             * @param color:
-             *      The color of the lines of the icosahedron.
             */
-            static L3D::Figure createIcosahedron(const L2D::Color& color);
+            static L3D::Figure createIcosahedron();
             
             /*
              * Description:
@@ -275,10 +504,8 @@ namespace L3D {
              *      when looking at a face from outside the dodecahedron at the center.
              *      !!! Makes use of the input file /engine/3D_Bodies/dodecahedron.ini !!!
              *
-             * @param color:
-             *      The color of the lines of the dodecahedron.
             */
-            static L3D::Figure createDodecahedron(const L2D::Color& color, bool triangulate);
+            static L3D::Figure createDodecahedron(bool triangulate);
 
             /*
              * Description:
@@ -288,8 +515,6 @@ namespace L3D {
              *      The ini::configuration files are located at /engine/3D_Bodies/.
              *      The supported basic platonic bodies are of type 'cube', 'tetrahedron' and 'octahedron'.
              *
-             * @param color:
-             *      The color of each line of the basic platonic body.
              * @param type:
              *      The type of platonic body to create.
              *      The three supported types are 'cube', 'tetrahedron' and 'octahedron'.
@@ -297,7 +522,7 @@ namespace L3D {
              *      Whether or not the faces should be divided into triangles.
              *      See parseFacesPlatonicBody() for more info.
              */
-            static L3D::Figure createBasicPlatonicBody(const L2D::Color& color, const std::string& type,
+            static L3D::Figure createBasicPlatonicBody(const std::string& type,
                                                        bool triangulate = false);
 
             /*
@@ -308,8 +533,6 @@ namespace L3D {
              *      of the bottom face, such that every pair of points, together with the
              *      top of the cone forms a triangle.
              *
-             * @param color:
-             *      The color of each of the lines.
              * @param configuration:
              *      The configuration from which to retrieve n and the height of the cone.
              * @param figureName:
@@ -318,8 +541,7 @@ namespace L3D {
              *      Whether or not the faces should be divided into triangles.
              *      See parseFacesPlatonicBody() for more info.
             */
-            static L3D::Figure createCone(const L2D::Color &color,
-                                          const ini::Configuration &configuration,
+            static L3D::Figure createCone(const ini::Configuration &configuration,
                                           const std::string& figureName,
                                           bool triangulate);
 
@@ -331,8 +553,6 @@ namespace L3D {
              *      of the bottom and top faces, such that every two subsequent pairs
              *      of points form a rectangle.
              *
-             * @param color:
-             *      The color of each of the lines.
              * @param configuration:
              *      The configuration from which to retrieve n and the height of the cylinder.
              * @param figureName:
@@ -341,8 +561,7 @@ namespace L3D {
              *      Whether or not the faces should be divided into triangles.
              *      See parseFacesPlatonicBody() for more info.
             */
-            static L3D::Figure createCylinder(const L2D::Color &color,
-                                              const ini::Configuration &configuration,
+            static L3D::Figure createCylinder(const ini::Configuration &configuration,
                                               const std::string& figureName,
                                               bool triangulate);
 
@@ -360,15 +579,12 @@ namespace L3D {
              *      each starting triangle/face duplicate the points generated on the edges of that
              *      starting triangle. Fix this inefficiency???
              *
-             * @param color:
-             *      The color of each of the lines.
              * @param configuration:
              *      The configuration from which to retrieve n (the nr of times to division each icosahedron face).
              * @param figureName:
              *      The name by which to address the figure in the configuration.
             */
-            static L3D::Figure createSphere(const L2D::Color& color,
-                                            const ini::Configuration& configuration,
+            static L3D::Figure createSphere(const ini::Configuration& configuration,
                                             const std::string& figureName);
 
 
@@ -380,8 +596,6 @@ namespace L3D {
              *      points. We then create the mantle of the torus by connecting
              *      points of the circles i and j as (p_i, p_j, p_j+1, p_i+1).
              *
-             * @param color:
-             *      The color of each of the lines.
              * @param configuration:
              *      The configuration from which to retrieve n (nr of vertical circles)
              *      and m (nr of points on each vertical circle).
@@ -391,8 +605,7 @@ namespace L3D {
              *      Whether or not the faces should be divided into triangles.
              *      See parseFacesPlatonicBody() for more info.
             */
-            static L3D::Figure createTorus(const L2D::Color& color,
-                                           const ini::Configuration& configuration,
+            static L3D::Figure createTorus(const ini::Configuration& configuration,
                                            const std::string& figureName,
                                            bool triangulate);
 
@@ -482,7 +695,12 @@ namespace L3D {
          */
         public:
 
-            explicit Figure(L2D::Color color, bool triangulate = false);
+            explicit Figure(bool triangulate = false);
+
+            explicit Figure(L2D::Color& ambientReflectivity,
+                            L2D::Color& diffuseReflectivity,
+                            L2D::Color& specularReflectivity,
+                            double reflectionCoefficient = 0.0, bool triangulate = false);
 
             /*
              * Description:
@@ -554,10 +772,12 @@ namespace L3D {
             std::ostream & operator <<(std::ostream& output_stream) const;
 
         public:
-
             std::vector<Vector3D> points;
             std::vector<Face> faces;
-            L2D::Color color;
+            L2D::Color ambientReflectivity;
+            L2D::Color diffuseReflectivity;
+            L2D::Color specularReflectivity;
+            double reflectionCoefficient;
             const bool triangulate;
     };
 
@@ -808,7 +1028,6 @@ namespace L3D {
                  *      of the to generate the L3D::Figure.
                  */
                 L3D::Figure generateFigure(const ini::Configuration &configuration,
-                                           L2D::Color color,
                                            const LParser::LSystem3D& lSystem);
 
 

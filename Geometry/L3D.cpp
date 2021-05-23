@@ -106,6 +106,230 @@ L2D::Point2D L3D::projectPoint3D(const Vector3D& point3D, const double d) {
              d * point3D.y / (-point3D.z) };
 }
 
+Vector3D L3D::recreatePoint3D(const double x, const double y, const double z, const double d) {
+    return Vector3D::point(x * (-z) / d, y * (-z) / d, z);
+}
+
+
+
+
+
+L3D::Light::Light(const L2D::Color &ambient, const L2D::Color &diffuse, const L2D::Color &specular) {
+    this->_ambientIntensity  = ambient;
+    this->_diffuseIntensity  = diffuse;
+    this->_specularIntensity = specular;
+}
+
+L2D::Color
+L3D::Light::getDiffuseContribution(const Vector3D &normalizedNormal, const L2D::Color &diffuseReflectivity) const {
+    return L2D::Color::black();
+}
+
+L2D::Color L3D::Light::getDiffuseContribution(const Vector3D &normalizedNormal, const L2D::Color &diffuseReflectivity,
+                                              double x, double y, double z, double d) const {
+    return L2D::Color::black();
+}
+
+const L2D::Color &L3D::Light::getAmbientIntensity() const {
+    return this->_ambientIntensity;
+}
+
+const L2D::Color &L3D::Light::getDiffuseIntensity() const {
+    return this->_diffuseIntensity;
+}
+
+const L2D::Color &L3D::Light::getSpecularIntensity() const {
+    return this->_specularIntensity;
+}
+
+unsigned int L3D::Light::getType() const {
+    return 0;
+}
+
+bool L3D::Light::isInfLight() const {
+    return this->getType() == 1;
+}
+
+bool L3D::Light::isPointLight() const {
+    return this->getType() == 2;
+}
+
+void L3D::Light::applyTransformation(const Matrix &matrix) {}
+
+
+
+
+
+
+L3D::InfLight::InfLight(const L2D::Color &ambient, const L2D::Color &diffuse, const L2D::Color &specular,
+                        const Vector3D &ldVector) :
+             L3D::Light(ambient, diffuse, specular) {
+
+    this->_ldVector = ldVector;
+}
+
+L2D::Color L3D::InfLight::getDiffuseContribution(const Vector3D &normalizedNormal, const L2D::Color& diffuseReflectivity) const {
+    if (!diffuseReflectivity.nonZero())
+        return L2D::Color::black();
+
+    const double cosAlpha = Vector3D::dot(normalizedNormal, - Vector3D::normalise(this->_ldVector));
+
+    if (cosAlpha <= 0.0)
+        return L2D::Color::black();
+
+    return diffuseReflectivity * this->getDiffuseIntensity() * cosAlpha;
+}
+
+void L3D::InfLight::applyTransformation(const Matrix &matrix) {
+    this->_ldVector *= matrix;
+}
+
+unsigned int L3D::InfLight::getType() const {
+    return 1;
+}
+
+
+
+
+
+
+
+L3D::PointLight::PointLight(const L2D::Color &ambient, const L2D::Color &diffuse, const L2D::Color &specular,
+                            const Vector3D &location, const double spotAngle) :
+                            L3D::Light(ambient, diffuse, specular) {
+
+    this->_location = location;
+    this->_spotAngle = spotAngle;
+}
+
+L2D::Color
+L3D::PointLight::getDiffuseContribution(const Vector3D &normalizedNormal, const L2D::Color &diffuseReflectivity) const {
+    return L2D::Color::black();
+}
+
+L2D::Color
+L3D::PointLight::getDiffuseContribution(const Vector3D &normalizedNormal, const L2D::Color &diffuseReflectivity,
+                                        const double x, const double y, const double z, const double d) const {
+
+    if (!diffuseReflectivity.nonZero())
+        return L2D::Color::black();
+
+    const bool spotAngleProvided = this->_spotAngle >= 0.0;
+
+    Vector3D originalPoint = L3D::recreatePoint3D(x, y, z, d);
+    Vector3D ldVector = this->_location - originalPoint;
+
+    const double cosAlpha = Vector3D::dot(normalizedNormal,  Vector3D::normalise(ldVector));
+    double spotAngle;
+
+    if (spotAngleProvided) {
+        spotAngle = std::cos(this->_spotAngle);
+        if (cosAlpha < spotAngle)
+            return L2D::Color::black();
+    }
+    if (cosAlpha <= 0.0)
+        return L2D::Color::black();
+
+    double angleModifier = spotAngleProvided ?
+            1.0 - (1.0 - cosAlpha)/(1.0 - spotAngle) :
+            cosAlpha;
+
+    return diffuseReflectivity * this->getDiffuseIntensity() * angleModifier;
+
+}
+
+void L3D::PointLight::applyTransformation(const Matrix &matrix) {
+    this->_location *= matrix;
+}
+
+unsigned int L3D::PointLight::getType() const {
+    return 2;
+}
+
+
+
+
+
+
+
+
+
+L3D::LightCaster::LightCaster() :
+        _ambientResult(0.0, 0.0, 0.0),
+        _infDiffuseResult(0.0, 0.0, 0.0),
+        _pointDiffuseResult(0.0, 0.0, 0.0),
+        _specularResult(0.0, 0.0, 0.0),
+        _diffuseReflectivity(nullptr),
+        _specularReflectivity(nullptr),
+        _reflectionCoefficient(0) {}
+
+L3D::LightCaster::~LightCaster() {
+    for (Light* light : lightSources)
+        delete light;
+}
+
+void L3D::LightCaster::setReflectivityComponents(const L3D::Figure &figure) {
+    this->_diffuseReflectivity = &figure.diffuseReflectivity;
+    this->_specularReflectivity = &figure.specularReflectivity;
+    this->_reflectionCoefficient = figure.reflectionCoefficient;
+}
+
+void L3D::LightCaster::recalculateAmbientResult(const L3D::Figure& figure) {
+    this->_ambientResult = L2D::Color::black();
+    for (const L3D::Light* lightSource : lightSources)
+        this->_ambientResult += lightSource->getAmbientIntensity();
+
+    this->_ambientResult *= figure.ambientReflectivity;
+}
+
+void L3D::LightCaster::recalculateInfDiffuseResult(const Vector3D &normalizedNormal) {
+    // Reset the infinite diffuse component and add in all the contributions
+    // of the L3D::InfLight light sources.
+    this->_infDiffuseResult = L2D::Color::black();
+    for (const L3D::Light* light : lightSources) {
+        if (light->isInfLight())
+            this->_infDiffuseResult += light->getDiffuseContribution(normalizedNormal, *this->_diffuseReflectivity);
+    }
+}
+
+void L3D::LightCaster::recalculatePointDiffuseResult(const Vector3D &normalizedNormal, const double x,
+                                                     const double y, const double z, const double d) {
+    // Reset the point diffuse component and add in all the contributions
+    // of the L3D::PointLight light sources.
+    this->_pointDiffuseResult = L2D::Color::black();
+    for (const L3D::Light* light : lightSources) {
+        if (light->isPointLight())
+            this->_pointDiffuseResult += light->getDiffuseContribution(normalizedNormal, *this->_diffuseReflectivity, x, y, z, d);
+    }
+}
+
+
+void L3D::LightCaster::recalculateSpecularResult() {
+
+}
+
+void L3D::LightCaster::resetSpecularResult() {
+    this->_specularResult = L2D::Color::black();
+}
+
+L2D::Color L3D::LightCaster::getResultColor() const {
+    return this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult + this->_specularResult;
+}
+
+L2D::Color L3D::LightCaster::getClampedResultColor() const {
+    L2D::Color unClamped = this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult + this->_specularResult;
+    return L2D::Color::colorClamp(unClamped.red, unClamped.green, unClamped.blue);
+}
+
+void L3D::LightCaster::applyTransformation(const Matrix &matrix) {
+    for (L3D::Light* light : lightSources) {
+        // This check has no actual meaning, as a applyTransformation() call
+        // is a noop. This does make the code more explicit in what it is supposed to do.
+        if (light->isPointLight() || light->isInfLight())
+            light->applyTransformation(matrix);
+    }
+}
+
 
 
 
@@ -213,11 +437,10 @@ std::string L3D::Face::toString(const std::vector<Vector3D>& points) const {
 
 
 
-L3D::Figure L3D::Figure::createLineDrawingFigure(const L2D::Color& color,
-                                                 const ini::Configuration& configuration,
+L3D::Figure L3D::Figure::createLineDrawingFigure(const ini::Configuration& configuration,
                                                  const std::string& figureName) {
 
-    L3D::Figure newFigure = L3D::Figure(color);
+    L3D::Figure newFigure = L3D::Figure();
 
     // add all the 3D points to the L3D::Figure
     std::vector<double> point = {};
@@ -244,21 +467,21 @@ L3D::Figure L3D::Figure::createLineDrawingFigure(const L2D::Color& color,
     return newFigure;
 }
 
-L3D::Figure L3D::Figure::createCube(const L2D::Color& color, const bool triangulate) {
-    return createBasicPlatonicBody(color, "cube", triangulate);
+L3D::Figure L3D::Figure::createCube(const bool triangulate) {
+    return createBasicPlatonicBody("cube", triangulate);
 }
 
-L3D::Figure L3D::Figure::createTetrahedron(const L2D::Color& color) {
-    return createBasicPlatonicBody(color, "tetrahedron");
+L3D::Figure L3D::Figure::createTetrahedron() {
+    return createBasicPlatonicBody("tetrahedron");
 }
 
-L3D::Figure L3D::Figure::createOctahedron(const L2D::Color &color) {
-    return createBasicPlatonicBody(color, "octahedron");
+L3D::Figure L3D::Figure::createOctahedron() {
+    return createBasicPlatonicBody("octahedron");
 }
 
-L3D::Figure L3D::Figure::createIcosahedron(const L2D::Color &color) {
+L3D::Figure L3D::Figure::createIcosahedron() {
 
-    L3D::Figure newIcosahedron = L3D::Figure(color);
+    L3D::Figure newIcosahedron = L3D::Figure();
 
     ini::Configuration configuration;
     std::ifstream fin("../3D_Bodies/icosahedron.ini");
@@ -287,9 +510,9 @@ L3D::Figure L3D::Figure::createIcosahedron(const L2D::Color &color) {
     return newIcosahedron;
 }
 
-L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color, const bool triangulate) {
+L3D::Figure L3D::Figure::createDodecahedron(const bool triangulate) {
 
-    L3D::Figure newDodecahedron = L3D::Figure(color, triangulate);
+    L3D::Figure newDodecahedron = L3D::Figure(triangulate);
 
     ini::Configuration configuration;
     std::ifstream fin("../3D_Bodies/dodecahedron.ini");
@@ -297,7 +520,7 @@ L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color, const bool 
     fin.close();
 
     // generate the points for the dodecahedron from a icosahedron
-    const L3D::Figure icosahedron = createIcosahedron(L2D::Color(0, 0, 0));
+    const L3D::Figure icosahedron = createIcosahedron();
     Vector3D center = Vector3D::point(0, 0, 0);
 
     for (const L3D::Face& iFace : icosahedron.faces) {
@@ -320,12 +543,11 @@ L3D::Figure L3D::Figure::createDodecahedron(const L2D::Color &color, const bool 
     return newDodecahedron;
 }
 
-L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
-                                        const ini::Configuration &configuration,
-                                        const std::string& figureName,
-                                        const bool triangulate) {
+L3D::Figure L3D::Figure::createCone(const ini::Configuration &configuration,
+                                    const std::string& figureName,
+                                    const bool triangulate) {
 
-    L3D::Figure newCone = L3D::Figure(color, triangulate);
+    L3D::Figure newCone = L3D::Figure(triangulate);
     const int n = configuration[figureName]["n"].as_int_or_die();
     const double height = configuration[figureName]["height"].as_double_or_die();
 
@@ -335,7 +557,7 @@ L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
     // generate the points for the cone
     const double c = 2.0 * M_PI / ((double) n);
     L3D::Face newFace = L3D::Face();
-    newFace.point_indexes.resize(n);
+    newFace.point_indexes.resize(n);    // bottom face will hold n points
 
     for (unsigned int p = 0; p < (unsigned int) n; p++) {
         newCone.points.emplace_back(Vector3D::point(std::cos(p * c), std::sin(p * c), 0));
@@ -351,7 +573,7 @@ L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
     // generate the faces for the cone
     newFace.point_indexes.resize(3);
     const int& topIndex = n;
-    for (unsigned int pointIndex = 0; pointIndex < (unsigned int) n; pointIndex++) {
+    for (unsigned int pointIndex = 0; pointIndex < (unsigned int) n - 1; pointIndex++) {
         newFace.point_indexes.at(0) = pointIndex;
         newFace.point_indexes.at(1) = pointIndex + 1;
         newFace.point_indexes.at(2) = topIndex;
@@ -362,16 +584,16 @@ L3D::Figure L3D::Figure::createCone(const L2D::Color &color,
     newFace.point_indexes.at(0) = topIndex - 1; // p0
     newFace.point_indexes.at(1) = 0;            // pn-1
     newFace.point_indexes.at(2) = topIndex;     // ptop
+    newCone.faces.emplace_back(newFace);
 
     return newCone;
 }
 
-L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
-                                        const ini::Configuration &configuration,
+L3D::Figure L3D::Figure::createCylinder(const ini::Configuration &configuration,
                                         const std::string& figureName,
                                         const bool triangulate) {
 
-    L3D::Figure newCylinder = L3D::Figure(color, triangulate);
+    L3D::Figure newCylinder = L3D::Figure(triangulate);
     const int n = configuration[figureName]["n"].as_int_or_die();
     const double height = configuration[figureName]["height"].as_double_or_die();
 
@@ -418,12 +640,11 @@ L3D::Figure L3D::Figure::createCylinder(const L2D::Color &color,
     return newCylinder;
 }
 
-L3D::Figure L3D::Figure::createSphere(const L2D::Color &color,
-                                      const ini::Configuration &configuration,
+L3D::Figure L3D::Figure::createSphere(const ini::Configuration &configuration,
                                       const std::string& figureName) {
 
-    L3D::Figure newSphere = L3D::Figure(color);
-    L3D::Figure icosahedron = L3D::Figure::createIcosahedron(L2D::Color(0, 0, 0));
+    L3D::Figure newSphere = L3D::Figure();
+    L3D::Figure icosahedron = L3D::Figure::createIcosahedron();
 
     const unsigned int iterationsLeft = configuration[figureName]["n"].as_int_or_die();
 
@@ -455,14 +676,14 @@ L3D::Figure L3D::Figure::createSphere(const L2D::Color &color,
     return newSphere;
 }
 
-L3D::Figure L3D::Figure::createBasicPlatonicBody(const L2D::Color& color, const std::string& type,
+L3D::Figure L3D::Figure::createBasicPlatonicBody(const std::string& type,
                                                  const bool triangulate) {
 
     // return an empty L3D::Figure
     if (type != "cube" && type != "tetrahedron" && type != "octahedron")
-        return L3D::Figure(color);
+        return L3D::Figure();
 
-    L3D::Figure newPlatonicBody = L3D::Figure(color, triangulate);
+    L3D::Figure newPlatonicBody = L3D::Figure(triangulate);
     ini::Configuration configuration;
 
     std::ifstream fin("../3D_Bodies/" + type + ".ini");
@@ -477,6 +698,8 @@ L3D::Figure L3D::Figure::createBasicPlatonicBody(const L2D::Color& color, const 
 
     return newPlatonicBody;
 }
+
+
 
 
 void L3D::Figure::parsePointsPlatonicBody(const ini::Configuration& configuration, L3D::Figure& platonicBody) {
@@ -578,10 +801,10 @@ void L3D::Figure::divisionTriangleFace(const unsigned int iterationsLeft,
 
 }
 
-L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configuration &configuration,
+L3D::Figure L3D::Figure::createTorus(const ini::Configuration &configuration,
                                      const std::string &figureName, const bool triangulate) {
 
-    L3D::Figure newTorus = L3D::Figure(color, triangulate);
+    L3D::Figure newTorus = L3D::Figure(triangulate);
 
     // Distance from center of the hole of the torus to center of the tube of the torus.
     double R = configuration[figureName]["R"].as_double_or_die();
@@ -638,7 +861,19 @@ L3D::Figure L3D::Figure::createTorus(const L2D::Color &color, const ini::Configu
 }
 
 
-L3D::Figure::Figure(L2D::Color color, const bool triangulate) : color(color), triangulate(triangulate) { }
+L3D::Figure::Figure(const bool triangulate) : triangulate(triangulate) {}
+
+L3D::Figure::Figure(L2D::Color &ambientReflectivity,
+                    L2D::Color &diffuseReflectivity,
+                    L2D::Color &specularReflectivity,
+                    double reflectionCoefficient, bool triangulate) : triangulate(triangulate) {
+
+    this->ambientReflectivity = ambientReflectivity;
+    this->diffuseReflectivity = diffuseReflectivity;
+    this->specularReflectivity = specularReflectivity;
+    this->reflectionCoefficient = reflectionCoefficient;
+}
+
 
 bool L3D::Figure::addFace(const L3D::Face &newFace) {
 
@@ -663,7 +898,7 @@ L2D::Lines2D L3D::Figure::toLines2D(const double projectionScreenDistance) const
     L2D::Lines2D lines2D = {};
 
     for (const L3D::Face& face : faces) {
-        face.addToLines2D(lines2D, points, color, projectionScreenDistance);
+        face.addToLines2D(lines2D, points, this->ambientReflectivity, projectionScreenDistance);
     }
 
     return lines2D;
@@ -674,7 +909,7 @@ L2D::Lines2DZ L3D::Figure::toLines2DZ(const double projectionScreenDistance) con
     L2D::Lines2DZ lines2DZ = {};
 
     for (const L3D::Face& face : faces) {
-        face.addToLines2DZ(lines2DZ, points, color, projectionScreenDistance);
+        face.addToLines2DZ(lines2DZ, points, this->ambientReflectivity, projectionScreenDistance);
     }
 
     return lines2DZ;
@@ -797,10 +1032,9 @@ void L3D::LSystem::State::move() {
 L3D::LSystem::LGenerator::LGenerator() : _angle(0), _justTunneled(false), _justReloaded(false) {}
 
 L3D::Figure L3D::LSystem::LGenerator::generateFigure(const ini::Configuration &configuration,
-                                                     const L2D::Color color,
                                                      const LParser::LSystem3D &lSystem) {
 
-    L3D::Figure L3DFigure = L3D::Figure(color);
+    L3D::Figure L3DFigure = L3D::Figure();
 
     addFaces(lSystem, L3DFigure);
 

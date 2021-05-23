@@ -7,11 +7,84 @@
 
 /// ############## Color ############## ///
 
+L2D::Color::Color() : red(0), green(0), blue(0) {}
+
 L2D::Color::Color(const double red, const double green, const double blue) {
+    assert(red   >= 0.0 && red   <= 1.0 &&
+           green >= 0.0 && green <= 1.0 &&
+           blue  >= 0.0 && blue  <= 1.0    );
     this->red = red;
     this->green = green;
     this->blue = blue;
 }
+
+img::Color L2D::Color::toImageColor() const {
+    return img::Color(roundToInt(this->red * 255.0),
+                      roundToInt(this->green * 255.0),
+                      roundToInt(this->blue * 255.0));
+}
+
+L2D::Color L2D::Color::colorClamp(const double red, const double green, const double blue) {
+    return {clamp(red, 0.0, 1.0),
+            clamp(green, 0.0, 1.0),
+            clamp(blue, 0.0, 1.0)   };
+}
+
+L2D::Color L2D::Color::colorClamp(const L2D::Color& color) {
+    return {clamp(color.red, 0.0, 1.0),
+            clamp(color.green, 0.0, 1.0),
+            clamp(color.blue, 0.0, 1.0)   };
+}
+
+L2D::Color L2D::Color::operator+(const L2D::Color &operand) const {
+    return {this->red + operand.red, this->green + operand.green, this->blue + operand.blue};
+}
+
+L2D::Color L2D::Color::operator*(const L2D::Color &operand) const {
+    return {this->red * operand.red, this->green * operand.green, this->blue * operand.blue};
+}
+
+L2D::Color L2D::Color::operator*(const double scalar) const {
+    return {this->red * scalar, this->green * scalar, this->blue * scalar};
+}
+
+bool L2D::Color::nonZero() const {
+    return !(this->red == 0.0 && this->green == 0.0 && this->blue == 0.0);
+}
+
+L2D::Color& L2D::Color::operator+=(const L2D::Color &operand) {
+    this->red += operand.red;
+    this->green += operand.green;
+    this->blue += operand.blue;
+    return *this;
+}
+
+L2D::Color& L2D::Color::operator*=(const L2D::Color &operand) {
+    this->red *= operand.red;
+    this->green *= operand.green;
+    this->blue *= operand.blue;
+    return *this;
+}
+
+bool L2D::Color::addColor(const L2D::Color &operand) {
+    if ((this->red + operand.red) > 1.0 ||
+        (this->green + operand.green) > 1.0 ||
+        (this->blue + operand.blue) > 1.0)
+        return false;
+
+    this->red += operand.red;
+    this->green += operand.green;
+    this->blue += operand.blue;
+    return true;}
+
+L2D::Color L2D::Color::black() {
+    return {0.0, 0.0, 0.0};
+}
+
+
+
+
+
 
 
 
@@ -123,9 +196,7 @@ L2D::Lines2D L2D::LSystem::LGenerator::generateLines(const ini::Configuration &c
 
 
     const std::vector<double> lnColor = configuration["2DLSystem"]["color"];
-    img::Color lncolor(lnColor.at(0)*255.0, lnColor.at(1)*255.0, lnColor.at(2)*255.0);
-
-    const double size = configuration["General"]["size"];
+    L2D::Color lncolor(lnColor.at(0), lnColor.at(1), lnColor.at(2));
 
     // generate the list of lines that make up the image
 
@@ -137,7 +208,7 @@ L2D::Lines2D L2D::LSystem::LGenerator::generateLines(const ini::Configuration &c
 }
 
 void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,
-                                             img::Color& lncolor, L2D::Lines2D& lines) {
+                                             L2D::Color& lncolor, L2D::Lines2D& lines) {
 
     _state.currentLoc.x = 0.0;
     _state.currentLoc.y = 0.0;
@@ -162,7 +233,7 @@ void L2D::LSystem::LGenerator::generateLines(const LParser::LSystem2D& lSystem,
 void L2D::LSystem::LGenerator::recurse(const char replacedChar,
                                        const LParser::LSystem2D &lSystem,
                                        unsigned int iterations,
-                                       img::Color &lncolor, L2D::Lines2D &lines) {
+                                       L2D::Color &lncolor, L2D::Lines2D &lines) {
 
     // change the angle as needed
     if (replacedChar == '+') {

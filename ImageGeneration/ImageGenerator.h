@@ -31,6 +31,7 @@ namespace ImageGenerator {
                                 const std::string& iniFilePath = "",
                                 bool triangulate = false);
 
+    L3D::LightCaster parseLights(const ini::Configuration& configuration);
 
     /*
      * Description:
@@ -112,11 +113,12 @@ namespace ImageGenerator {
                          img::Color color, img::EasyImage& img,
                          L3D::ZBuffer& ZBuffer);
 
-    void draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D::ZBuffer& ZBuffer,
+    void draw_zbuff_triag(img::EasyImage& img, L3D::ZBuffer& ZBuffer,
                           Vector3D const& A,
                           Vector3D const& B,
                           Vector3D const& C,
-                          ImageSpecifications& specs);
+                          ImageSpecifications& specs,
+                          L3D::LightCaster& lightCaster);
 
     /*
      * Description:
@@ -156,20 +158,39 @@ namespace ImageGenerator {
      *
      * @param figures:
      *      The list of L3D::Figure's which to draw on the generated img::EasyImage.
+     * @param lightCaster:
+     *      A class that will handle the lighting calculations, such that
+     *      a final colour can be assigned to each drawn pixel.
      * @param size:
      *      The length of the longest side of the generated img::EasyImage.
      * @param bgColor:
      *      The default color of all pixels of the generated img::EasyImage.
      *      In other words, the background colour.
      */
-    img::EasyImage drawLines2DZT(const L3D::Figures3D& figures, double size, img::Color& bgColor);
+    img::EasyImage drawLines2DZT(const L3D::Figures3D& figures, L3D::LightCaster& lightCaster,
+                                 double size, img::Color& bgColor);
 
 
     /*
-     *
+     * Description:
+     *      Find the x coordinate of the intersection between the
+     *      line AB and the straight  yi.
      */
     double findIntersectionX(double yi, const L2D::Point2D& A, const L2D::Point2D& B);
 
+    /*
+     * Description:
+     *      Generate a imgWidth x height img::EasyImage.
+     *      If neither dimensional component is 0,
+     *      a red cross will be attempted tp be drawn onto the
+     *      resulting image.
+     *
+     * @param imgWidth:
+     *      The width of the generated img::EasyImage.
+     * @param imgHeight:
+     *      The height of the generated img::EasyImage.
+     */
+    img::EasyImage generateRejectionImage(unsigned int imgWidth, unsigned int imgHeight);
 
 };
 

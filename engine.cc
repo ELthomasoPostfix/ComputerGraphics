@@ -19,8 +19,8 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         LParser::LSystem2D lSystem2D;
         const std::string& LFile = configuration["2DLSystem"]["inputfile"].as_string_or_die();
         const std::string L2DFile = truncateFileName(iniFilePath) + LFile;
-        std::cout << LFile << std::endl; // TODO delete ???
-        std::cout << "\t" << L2DFile << std::endl; // TODO delete ???
+        // std::cout << LFile << std::endl; // TODO delete ???
+        // std::cout << "\t" << L2DFile << std::endl; // TODO delete ???
         std::ifstream inputStream(L2DFile);
         inputStream >> lSystem2D;
         inputStream.close();
@@ -29,10 +29,10 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         L2D::Lines2D lines = lSystemGenerator.generateLines(configuration, lSystem2D);
         return ImageGenerator::drawLines2D(lines, size, bgcolor);
     }
-    else if (type == "Wireframe" || type == "ZBufferedWireframe" || type == "ZBuffering") {
+    else if (type == "Wireframe" || type == "ZBufferedWireframe" || type == "ZBuffering" || type == "LightedZBuffering") {
 
         // Whether or not triangulation should be performed on the L3D::Figures.
-        const bool triangulate = type == "ZBuffering";
+        const bool triangulate = type == "ZBuffering" || type == "LightedZBuffering";
 
         // retrieve configuration attributes
         double size = configuration["General"]["size"].as_double_or_die();
@@ -40,9 +40,14 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         std::vector<double> bgColor = configuration["General"]["backgroundcolor"].as_double_tuple_or_die();
         img::Color bgcolor(bgColor.at(0)*255.0, bgColor.at(1)*255.0, bgColor.at(2)*255.0);
 
+        L3D::LightCaster lightCaster = ImageGenerator::parseLights(configuration);
+
         // Parse and create the list of figures.
         // These figures are composed of Vector3D points.
         L3D::Figures3D figures = ImageGenerator::parseFigures(configuration, iniFilePath, triangulate);
+
+        if (figures.empty())
+            goto reject;
 
         // apply any needed transformations
         Matrix fullTrans;       // The complete transformation that should be applied to all points
@@ -56,6 +61,8 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         std::vector<double> eyeCoordinates = configuration["General"]["eye"].as_double_tuple_or_die();
         Vector3D eye = Vector3D::point(eyeCoordinates.at(0), eyeCoordinates.at(1), eyeCoordinates.at(2));
         Matrix eyeTrans = L3D::eyePointTransMatrix(eye);
+
+        lightCaster.applyTransformation(eyeTrans);
 
         unsigned int figIndex = 0;
         for (L3D::Figure& figure : figures) {
@@ -83,15 +90,17 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
             figIndex++;
         }
 
-        if (type == "ZBuffering") {
-            return ImageGenerator::drawLines2DZT(figures, size, bgcolor);
+
+
+        if (type == "ZBuffering" || type == "LightedZBuffering") {
+            return ImageGenerator::drawLines2DZT(figures, lightCaster, size, bgcolor);
 
         } else if (type == "ZBufferedWireframe") {
             // generate the 2D lines
             L2D::Lines2DZ lines2D = ImageGenerator::projectFiguresZ(figures, 1.0);
 
             return ImageGenerator::drawLines2DZ(lines2D, size, bgcolor);
-        } else {
+        } else if (type == "Wireframe") {
             // generate the 2D lines
             L2D::Lines2D lines2D = ImageGenerator::projectFigures(figures, 1.0);
 
@@ -99,8 +108,8 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         }
     }
 
-
-    return img::EasyImage();
+    reject:
+    return ImageGenerator::generateRejectionImage(1024, 1024);
 }
 
 int main(int argc, char const* argv[])
@@ -113,7 +122,7 @@ int main(int argc, char const* argv[])
                         ini::Configuration conf;
                         try
                         {
-                            std::cerr << argv[i] << std::endl;
+                                std::cerr << argv[i] << std::endl;
                                 std::ifstream fin(argv[i]);
                                 fin >> conf;
                                 fin.close();

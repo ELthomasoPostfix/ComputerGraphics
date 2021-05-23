@@ -16,51 +16,160 @@ L3D::Figures3D ImageGenerator::parseFigures(const ini::Configuration& configurat
         // setup configuration variables
         const std::string figureName = "Figure" + std::to_string(figureIndex);
         const std::string type = configuration[figureName]["type"].as_string_or_die();
+        bool addedFigure = false;
 
-        std::vector<double> Color = configuration[figureName]["color"].as_double_tuple_or_die();
-        L2D::Color color(Color.at(0)*255.0, Color.at(1)*255.0, Color.at(2)*255.0);
+        L2D::Color ambient = L2D::Color::black();
+        L2D::Color diffuse = L2D::Color::black();
+        L2D::Color specular = L2D::Color::black();
+        double reflectionCoefficient = 0;
+
+        // Retrieve the refraction components if they should be present
+        // in the ini::Configuration.
+        if (configuration["General"]["type"].as_string_or_die() == "LightedZBuffering") {
+            std::vector<double> ar = configuration[figureName]["ambientReflection"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            ambient = L2D::Color::colorClamp(ar[0], ar[1], ar[2]);
+            std::vector<double> dr = configuration[figureName]["diffuseReflection"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            diffuse = L2D::Color::colorClamp(dr[0], dr[1], dr[2]);
+            std::vector<double> sr = configuration[figureName]["specularReflection"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            specular = L2D::Color::colorClamp(sr[0], sr[1], sr[2]);
+
+            configuration[figureName]["reflectionCoefficient"].as_double_if_exists(reflectionCoefficient);
+        }
+        // Else treat the otherwise present color as the ambient component.
+        else {
+            std::vector<double> color = configuration[figureName]["color"].as_double_tuple_or_die();
+            ambient = L2D::Color::colorClamp(color[0], color[1], color[2]);
+
+        }
 
         if (type == "LineDrawing") {
-            figures.emplace_back(L3D::Figure::createLineDrawingFigure(color, configuration, figureName));
-
+            figures.emplace_back(L3D::Figure::createLineDrawingFigure(configuration, figureName));
+            addedFigure = true;
         } else if (type == "3DLSystem") {
 
             LParser::LSystem3D lSystem3D;
             const std::string& LFile = configuration[figureName]["inputfile"].as_string_or_die();
             const std::string L3DFile = truncateFileName(iniFilePath) + LFile;
-            std::cout << "\t" << L3DFile << std::endl;
+            // std::cout << "\t" << L3DFile << std::endl;   // TODO  print
             std::ifstream inputStream(L3DFile);
             inputStream >> lSystem3D;
             inputStream.close();
 
             L3D::LSystem::LGenerator lSystemGenerator;
-            figures.emplace_back(lSystemGenerator.generateFigure(configuration, color, lSystem3D));
-
+            figures.emplace_back(lSystemGenerator.generateFigure(configuration, lSystem3D));
+            addedFigure = true;
         } else if (type == "Cube") {
-            figures.emplace_back(L3D::Figure::createCube(color, triangulate));
+            figures.emplace_back(L3D::Figure::createCube(triangulate));
+            addedFigure = true;
         } else if (type == "Tetrahedron") {
-            figures.emplace_back(L3D::Figure::createTetrahedron(color));
+            figures.emplace_back(L3D::Figure::createTetrahedron());
+            addedFigure = true;
         } else if (type == "Octahedron") {
-            figures.emplace_back(L3D::Figure::createOctahedron(color));
+            figures.emplace_back(L3D::Figure::createOctahedron());
+            addedFigure = true;
         } else if (type == "Icosahedron") {
-            figures.emplace_back(L3D::Figure::createIcosahedron(color));
+            figures.emplace_back(L3D::Figure::createIcosahedron());
+            addedFigure = true;
         } else if (type == "Dodecahedron") {
-            figures.emplace_back(L3D::Figure::createDodecahedron(color, triangulate));
+            figures.emplace_back(L3D::Figure::createDodecahedron(triangulate));
+            addedFigure = true;
         } else if (type == "Cylinder") {
-            figures.emplace_back(L3D::Figure::createCylinder(color, configuration, figureName, triangulate));
+            figures.emplace_back(L3D::Figure::createCylinder(configuration, figureName, triangulate));
+            addedFigure = true;
         } else if (type == "Cone") {
-            figures.emplace_back(L3D::Figure::createCone(color, configuration, figureName, triangulate));
+            figures.emplace_back(L3D::Figure::createCone(configuration, figureName, triangulate));
+            addedFigure = true;
         } else if (type == "Sphere") {
-            figures.emplace_back(L3D::Figure::createSphere(color, configuration, figureName));
+            figures.emplace_back(L3D::Figure::createSphere(configuration, figureName));
+            addedFigure = true;
         } else if (type == "Torus") {
-            figures.emplace_back(L3D::Figure::createTorus(color, configuration, figureName, triangulate));
+            figures.emplace_back(L3D::Figure::createTorus(configuration, figureName, triangulate));
+            addedFigure = true;
         }
+
+        if (addedFigure) {
+            L3D::Figure& justAdded = figures.back();
+            justAdded.ambientReflectivity  = ambient;
+            justAdded.diffuseReflectivity  = diffuse;
+            justAdded.specularReflectivity = specular;
+            justAdded.reflectionCoefficient = reflectionCoefficient;
+        }
+
+        addedFigure = false;
 
     }
 
     return figures;
 }
 
+
+L3D::LightCaster ImageGenerator::parseLights(const ini::Configuration& configuration) {
+
+    L3D::LightCaster lightCaster;
+    std::string type = configuration["General"]["type"];
+
+    if (type == "LightedZBuffering") {
+
+        unsigned int lightCount = configuration["General"]["nrLights"].as_int_or_die();
+
+        for (unsigned int lightIndex = 0; lightIndex < lightCount; lightIndex++) {
+
+            const std::string lightName = "Light" + std::to_string(lightIndex);
+
+            std::vector<double> ai = configuration[lightName]["ambientLight"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            L2D::Color ambientIntensity = L2D::Color::colorClamp(ai.at(0), ai.at(1), ai.at(2));
+            std::vector<double> di = configuration[lightName]["diffuseLight"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            L2D::Color diffuseIntensity = L2D::Color::colorClamp(di.at(0), di.at(1), di.at(2));
+            std::vector<double> si = configuration[lightName]["specularLight"].as_double_tuple_or_default({0.0, 0.0, 0.0});
+            L2D::Color specularIntensity = L2D::Color::colorClamp(si.at(0), si.at(1), si.at(2));
+
+            bool infinity = configuration[lightName]["infinity"].as_bool_or_default(false);
+
+            std::vector<double> vector;
+            const std::string vectorName = infinity ? "direction" : "location";
+
+            if (configuration[lightName][vectorName].as_double_tuple_if_exists(vector)) {
+                if (infinity) {
+                    L3D::InfLight* light = new L3D::InfLight(
+                            ambientIntensity, diffuseIntensity, specularIntensity,
+                            Vector3D::vector(vector[0], vector[1], vector[2]));
+                    lightCaster.lightSources.emplace_back(light);
+                } else {
+
+                    double spotAngle;
+                    if (configuration[lightName]["spotAngle"].as_double_if_exists(spotAngle)) {
+                        L3D::PointLight* pointLight = new L3D::PointLight(
+                                ambientIntensity, diffuseIntensity, specularIntensity,
+                                Vector3D::point(vector[0], vector[1], vector[2]),
+                                toRadians(clamp(spotAngle, 0.0, 90.0)));
+                        lightCaster.lightSources.emplace_back(pointLight);
+                    } else {
+                        L3D::PointLight* pointLight = new L3D::PointLight(
+                                ambientIntensity, diffuseIntensity, specularIntensity,
+                                Vector3D::point(vector[0], vector[1], vector[2]),
+                                -1.0);
+                        lightCaster.lightSources.emplace_back(pointLight);
+                    }
+                }
+            } else {
+                L3D::Light* ambientLight = new L3D::Light(ambientIntensity, diffuseIntensity, specularIntensity);
+                lightCaster.lightSources.emplace_back(ambientLight);
+            }
+
+        }
+
+    } else {
+        // Generate the default ambient light for non lighting configurations.
+        L2D::Color ambientIntensity = L2D::Color::colorClamp(1.0, 1.0, 1.0);
+        L2D::Color diffuseIntensity = L2D::Color::black();
+        L2D::Color specularIntensity = L2D::Color::black();
+        L3D::Light* ambientLight = new L3D::Light(ambientIntensity, diffuseIntensity, specularIntensity);
+
+        lightCaster.lightSources.emplace_back(ambientLight);
+    }
+
+    return lightCaster;
+}
 
 
 L2D::Lines2D ImageGenerator::projectFigures(const L3D::Figures3D& figures, const double projectionScreenDistance) {
@@ -215,19 +324,23 @@ void ImageGenerator::draw_zbuff_line(unsigned int x0, unsigned int y0, const dou
     }
 }
 
-void ImageGenerator::draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D::ZBuffer& ZBuffer,
+void ImageGenerator::draw_zbuff_triag(img::EasyImage& img, L3D::ZBuffer& ZBuffer,
                                       Vector3D const& A,
                                       Vector3D const& B,
                                       Vector3D const& C,
-                                      ImageSpecifications& specs) {
+                                      ImageSpecifications& specs,
+                                      L3D::LightCaster& lightCaster) {
 
-    Vector3D u = B - A;
-    Vector3D v = C - A;
-    Vector3D w = Vector3D::cross(u, v);
+    Vector3D triangleSideB = B - A;
+    Vector3D triangleSideC = C - A;
+    Vector3D normal = Vector3D::cross(triangleSideB, triangleSideC);
 
-    const double k = Vector3D::dot(w, A);
-    const double dzdx = w.x / ( - specs.projectionScreenDistance * k);
-    const double dzdy = w.y / ( - specs.projectionScreenDistance * k);
+    Vector3D normalized = Vector3D::normalise(normal);
+    lightCaster.recalculateInfDiffuseResult(normalized);
+
+    const double k = Vector3D::dot(normal, A);
+    const double dzdx = normal.x / ( - specs.projectionScreenDistance * k);
+    const double dzdy = normal.y / ( - specs.projectionScreenDistance * k);
 
     L2D::Point2D moveVector = specs.getMoveVector();
     const double infty = std::numeric_limits<double>::infinity();
@@ -289,8 +402,12 @@ void ImageGenerator::draw_zbuff_triag(img::Color color, img::EasyImage& img, L3D
             const double zInv = zInvCte + (((double) xCurr) - xg) * dzdx + (((double) yCurr) - yg) * dzdy;
             // try coloring z-buffer[xCurr][yCurr] with zInv = zInv and color color
             if (ZBuffer.replace(xCurr, yCurr, zInv)) {
-                // img.draw_line(xCurr, yCurr, xCurr, yCurr, color);
-                img(xCurr, yCurr) = color;
+
+                lightCaster.recalculatePointDiffuseResult(normalized,
+                                                          (double) xCurr - specs.dx,
+                                                          (double) yCurr - specs.dy,
+                                                          1.0/zInv, specs.projectionScreenDistance);
+                img(xCurr, yCurr) = lightCaster.getClampedResultColor().toImageColor();
             }
         }
     }
@@ -319,7 +436,7 @@ img::EasyImage ImageGenerator::drawLines2D(const L2D::Lines2D& lines, const doub
         // draw the finalized line
         image.draw_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y),
                         roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y),
-                        img::Color(roundToInt(lineCopy.color.red), roundToInt(lineCopy.color.green), roundToInt(lineCopy.color.blue)));
+                        lineCopy.color.toImageColor());
     }
 
     return image;
@@ -349,7 +466,7 @@ img::EasyImage ImageGenerator::drawLines2DZ(const L2D::Lines2DZ& lines, const do
         // draw the finalized line
         draw_zbuff_line(roundToInt(lineCopy.p1.x), roundToInt(lineCopy.p1.y), lineCopy.p1Z,
                         roundToInt(lineCopy.p2.x), roundToInt(lineCopy.p2.y), lineCopy.p2Z,
-                        img::Color(roundToInt(lineCopy.color.red), roundToInt(lineCopy.color.green), roundToInt(lineCopy.color.blue)),
+                        lineCopy.color.toImageColor(),
                         image,
                         ZBuffer);
     }
@@ -357,23 +474,25 @@ img::EasyImage ImageGenerator::drawLines2DZ(const L2D::Lines2DZ& lines, const do
     return image;
 }
 
-img::EasyImage ImageGenerator::drawLines2DZT(const L3D::Figures3D& figures, const double size, img::Color& bgColor) {
+img::EasyImage ImageGenerator::drawLines2DZT(const L3D::Figures3D& figures, L3D::LightCaster& lightCaster,
+                                             const double size, img::Color& bgColor) {
 
     ImageSpecifications specs = ImageSpecifications(figures, size);
 
     img::EasyImage image(roundToInt(specs.imageX), roundToInt(specs.imageY), bgColor);
 
     L3D::ZBuffer ZBuffer = L3D::ZBuffer(image.get_width(), image.get_height());
-
     for (const L3D::Figure& fig : figures) {
+        lightCaster.recalculateAmbientResult(fig);
+        lightCaster.setReflectivityComponents(fig);
         for (const L3D::Face& face : fig.faces) {
-            draw_zbuff_triag(img::Color(roundToInt(fig.color.red), roundToInt(fig.color.green), roundToInt(fig.color.blue)),
-                             image,
+            draw_zbuff_triag(image,
                              ZBuffer,
                              fig.points.at(face.point_indexes.at(0)),
                              fig.points.at(face.point_indexes.at(1)),
                              fig.points.at(face.point_indexes.at(2)),
-                             specs);
+                             specs,
+                             lightCaster);
         }
     }
 
@@ -404,3 +523,17 @@ double ImageGenerator::findIntersectionX(const double yi, const L2D::Point2D& A,
     else
         return xLeft + ((yi - yLower) * (xRight - xLeft) / (yUpper - yLower));
 }
+
+
+img::EasyImage ImageGenerator::generateRejectionImage(const unsigned int imgWidth, const unsigned int imgHeight) {
+    img::EasyImage rejImg = img::EasyImage(imgWidth, imgHeight, L2D::Color::black().toImageColor());
+    unsigned int xRight = imgWidth-1, yUpper = imgHeight-1;
+
+    if (imgWidth == 0 || imgHeight == 0)
+        return rejImg;
+
+    rejImg.draw_line(0, 0, xRight, yUpper, L2D::Color(1.0, 0.0, 0.0).toImageColor());
+    rejImg.draw_line(0, yUpper, xRight, 0, L2D::Color(1.0, 0.0, 0.0).toImageColor());
+    return rejImg;
+}
+

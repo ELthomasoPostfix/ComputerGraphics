@@ -41,7 +41,8 @@ double toRadians(double degrees);
  * @param upperBound:
  *      If val > upperBound, clamp val to upperBound.
  */
-unsigned int clamp(unsigned int val, unsigned int lowerBound, unsigned int upperBound);
+int clamp(int val, int lowerBound, int upperBound);
+double clamp(double val, double lowerBound, double upperBound);
 
 /*
  * Description:

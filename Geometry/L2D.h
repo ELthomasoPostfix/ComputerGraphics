@@ -39,12 +39,111 @@ namespace L2D {
 
 
 
-
+    /*
+     * Description:
+     *      A color class meant to store rgb double values from 0.0 to
+     *      1.0. It represents the rgb color value that a 2D line should
+     *      be drawn in on the resulting image.
+     *      Convert it to an img::EasyImage color with rgb double
+     *      values between 0.0 and 255.0 using toImageColor().
+     */
     class Color {
         public:
+            Color();
+
+            /*
+             * Description:
+             *      A constructor that asserts that each of the passed values are
+             *      between 0.0 and 1.0.
+             */
             Color(double red, double green, double blue);
 
-        public:
+            /*
+            * Description:
+            *      Convert the L2D::Color from a rgb color with double values ranging from
+            *      0.0 to 1.0 to a img::EasyImage color with rgb double values ranging from
+            *      0.0 to 255.0.
+            */
+            img::Color toImageColor() const;
+
+            /*
+             * Description:
+             *      Clamp the input values between 0.0 and 1.0. The clamped values
+             *      are then used to construct a L2D::Color.
+             *
+             * @param red:
+             *      The non-clamped red component of the generated L2D::Color.
+             * @param green:
+             *      The non-clamped green component of the generated L2D::Color.
+             * @param blue:
+             *      The non-clamped blue component of the generated L2D::Color.
+             */
+            static L2D::Color colorClamp(double red, double green, double blue);
+
+           /*
+            * Description:
+            *      Clamp the input color between 0.0 and 1.0. The original L2D::Color
+            *      is not modified.
+            *
+            * @param color:
+            *      The non-clamped red component of the generated L2D::Color.
+            */
+            static L2D::Color colorClamp(const L2D::Color& color);
+
+            L2D::Color operator+ (const L2D::Color& operand) const;
+
+            L2D::Color operator* (const L2D::Color& operand) const;
+
+            L2D::Color operator* (double scalar) const;
+
+            /*
+             * Description:
+             *      Checks whether or not all rgb values are exactly equal
+             *      to 0.0.
+             */
+            bool nonZero() const;
+
+            /*
+             * Description:
+             *      This operator is unsafe in the sense that it adds the rgb color values of
+             *      the operand parameter to the rgb color values of this regardless of
+             *      whether any of the new rgb values exceed 1.0 or not.
+             *      If the operator is used, it is advised to only draw the clamped version
+             *      of it, obtained by passing the L2D::Color to the static
+             *      L2D::Color::colorClamp() function.
+             */
+            L2D::Color& operator+= (const L2D::Color& operand);
+
+            /*
+             * Description:
+             *      This operator is unsafe in the sense that it multiplies the rgb color values of
+             *      this with the rgb values of the operand parameter regardless of
+             *      whether any of the new rgb values exceed 1.0 or not.
+             *      If the operator is used, it is advised to only draw the clamped version
+             *      of it, obtained by passing the L2D::Color to the static
+             *      L2D::Color::colorClamp() function.
+             */
+            L2D::Color& operator*= (const L2D::Color& operand);
+
+            /*
+             * Description:
+             *      The L2D::addColor() function of a L2D::Color rejects, returns false, if
+             *      any of the new rgb components exceed 1.0. If false is returned, no changes wer made
+             *      to the caller.
+             *      Else, the color values of the operand are added to the
+             *      color values of this and the function accepts, true is returned.
+             */
+            bool addColor(const L2D::Color& operand);
+
+            /*
+             * Description:
+             *      Generate a L2D::Color instance whose values are
+             *      initialised to (0.0, 0.0, 0.0), which is black on
+             *      the rgb scale.
+             */
+            static L2D::Color black();
+
+    public:
             double red;
             double green;
             double blue;
@@ -68,7 +167,18 @@ namespace L2D {
             double y;
     };
 
-
+    /*
+     * Description:
+     *      A class that represents 2D lines. These lines are what are used for
+     *      z-buffering with lines.
+     *
+     * @member p1:
+     *      One of the two points that make up the 2D line.
+     * @member p2:
+     *      The other of the two points that make up the 2D line.
+     * @member color:
+     *      A L2D::Color with rgb values from 0.0 to 1.0.
+     */
     class Line2D {
         public:
             Line2D(const Point2D& p1, const Point2D& p2,
@@ -192,7 +302,7 @@ namespace L2D {
              *      The list to which to add the lines.
              */
             void generateLines(const LParser::LSystem2D& lSystem,
-                               img::Color& lncolor, L2D::Lines2D& lines);
+                               L2D::Color& lncolor, L2D::Lines2D& lines);
 
 
             /*
@@ -216,7 +326,7 @@ namespace L2D {
             void recurse(char replacedChar,
                          const LParser::LSystem2D& lSystem,
                          unsigned int iterations,
-                         img::Color& lncolor, Lines2D& lines);
+                         L2D::Color& lncolor, Lines2D& lines);
 
         public:
 

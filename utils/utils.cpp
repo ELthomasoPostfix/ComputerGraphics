@@ -18,7 +18,16 @@ double toRadians(const double degrees) {
 }
 
 
-unsigned int clamp(unsigned int val, unsigned int lowerBound, unsigned int upperBound) {
+int clamp(const int val, const int lowerBound, const int upperBound) {
+    if (val < lowerBound)
+        return lowerBound;
+    else if (val > upperBound)
+        return upperBound;
+
+    return val;
+}
+
+double clamp(const double val, const double lowerBound, const double upperBound) {
     if (val < lowerBound)
         return lowerBound;
     else if (val > upperBound)

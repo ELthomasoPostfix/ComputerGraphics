@@ -22,19 +22,19 @@ X: Niet werkend of niet geïmplementeerd
 | 4 | Z-buffering (lijnen)      | - |
 | 5 | Triangulatie              | V |
 |   | Z-buffering (driehoeken)  | V |
-| 6 | 3D fractalen              |   |
-|   | BuckyBall                 |   |
-|   | Mengerspons               |   |
-|   | View Frustum              |   |
-| 7 | Ambient licht             |   |
-|   | Diffuus licht (oneindig)  |   |
-|   | Diffuus licht (puntbron)  |   |
-|   | Speculair licht           |   |
-| 8 | Schaduw                   |   |
-|   | Texture mapping           |   |
-| 9 | Bollen en cylinders       |   |
-|   | UV-coordinaten            |   |
-|   | Cube mapping              |   |
+| 6 | 3D fractalen              | x |
+|   | BuckyBall                 | x |
+|   | Mengerspons               | x |
+|   | View Frustum              | x |
+| 7 | Ambient licht             | V |
+|   | Diffuus licht (oneindig)  | V |
+|   | Diffuus licht (puntbron)  | - |
+|   | Speculair licht           | x |
+| 8 | Schaduw                   | x |
+|   | Texture mapping           | x |
+| 9 | Bollen en cylinders       | x |
+|   | UV-coordinaten            | x |
+|   | Cube mapping              | x |
 
 Geïmplementeerde vorm van texture mapping: ...
 
@@ -44,6 +44,10 @@ Geïmplementeerde vorm van texture mapping: ...
   Dit is mogelijk echter z-fighting in plaats van een fout in de z-buffering met lijnen:
     + z_buffered_wireframes028.ini 
     + z_buffered_wireframes115.ini
+  
+* Diffuus licht (puntbron) heeft een licht gradient verschil ten opzichte van de gegeven .pngs.
+    + diffuus134.ini
+    + diffuus217.ini
 
 ## Niet-gequoteerde functionaliteit
 ...
