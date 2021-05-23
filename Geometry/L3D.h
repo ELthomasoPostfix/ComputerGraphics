@@ -130,6 +130,11 @@ namespace L3D {
             virtual L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity,
                                                       double x, double y, double z, double d) const;
 
+            virtual L2D::Color getSpecularContribution(const Vector3D& normalizedNormal, const L2D::Color& specularReflectivity,
+                                                       double x, double y, double z, double d, const Vector3D& eye) const;
+
+
+
             const L2D::Color& getAmbientIntensity() const;
 
             const L2D::Color& getDiffuseIntensity() const;
@@ -180,7 +185,12 @@ namespace L3D {
              */
             L2D::Color getDiffuseContribution(const Vector3D& normalizedNormal, const L2D::Color& diffuseReflectivity) const override;
 
-            /*
+            L2D::Color getSpecularContribution(const Vector3D &normalizedNormal, const L2D::Color &specularReflectivity,
+                                               double x, double y, double z, double d, const Vector3D& eye) const override;
+
+
+
+        /*
              * Description:
              *      Apply a transformation matrix to all L3D::InfLights and
              *      L3D::PointLights.
@@ -305,28 +315,22 @@ namespace L3D {
              *      The normalized normal vector on the face we want to recalculate
              *      the L3D::InfLight diffuse contributions for.
              */
-            void recalculateInfDiffuseResult(const Vector3D& normalizedNormal);
+            void recalculateInfResults(const Vector3D& normalizedNormal);
 
-            void recalculatePointDiffuseResult(const Vector3D& normalizedNormal, double x,
-                                               double y, double z, double d);
-
-            void recalculateSpecularResult();
-
-            /*
-             * Description:
-             *      Reset the rgb of the internal specular result to (0.0, 0.0, 0.0), black.
-             */
-            void resetSpecularResult();
+            void recalculatePointResults(const Vector3D& normalizedNormal, double x,
+                                        double y, double z, double d);
 
             void applyTransformation(const Matrix& matrix);
 
         public:
             L3D::Lights3D lightSources;
-        private:
+            Vector3D eye;
+    private:
             L2D::Color _ambientResult;
             L2D::Color _infDiffuseResult;
             L2D::Color _pointDiffuseResult;
-            L2D::Color _specularResult;
+            L2D::Color _infSpecularResult;
+            L2D::Color _pointSpecularResult;
             const L2D::Color* _diffuseReflectivity;
             const L2D::Color* _specularReflectivity;
             double _reflectionCoefficient;

@@ -336,7 +336,7 @@ void ImageGenerator::draw_zbuff_triag(img::EasyImage& img, L3D::ZBuffer& ZBuffer
     Vector3D normal = Vector3D::cross(triangleSideB, triangleSideC);
 
     Vector3D normalized = Vector3D::normalise(normal);
-    lightCaster.recalculateInfDiffuseResult(normalized);
+    lightCaster.recalculateInfResults(normalized);
 
     const double k = Vector3D::dot(normal, A);
     const double dzdx = normal.x / ( - specs.projectionScreenDistance * k);
@@ -403,10 +403,10 @@ void ImageGenerator::draw_zbuff_triag(img::EasyImage& img, L3D::ZBuffer& ZBuffer
             // try coloring z-buffer[xCurr][yCurr] with zInv = zInv and color color
             if (ZBuffer.replace(xCurr, yCurr, zInv)) {
 
-                lightCaster.recalculatePointDiffuseResult(normalized,
-                                                          (double) xCurr - specs.dx,
-                                                          (double) yCurr - specs.dy,
-                                                          1.0/zInv, specs.projectionScreenDistance);
+                lightCaster.recalculatePointResults(normalized,
+                                                (double) xCurr - specs.dx,
+                                                (double) yCurr - specs.dy,
+                                                1.0/zInv, specs.projectionScreenDistance);
                 img(xCurr, yCurr) = lightCaster.getClampedResultColor().toImageColor();
             }
         }

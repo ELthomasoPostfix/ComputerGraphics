@@ -63,6 +63,7 @@ img::EasyImage generate_image(const ini::Configuration &configuration, const std
         Matrix eyeTrans = L3D::eyePointTransMatrix(eye);
 
         lightCaster.applyTransformation(eyeTrans);
+        lightCaster.eye = eye;
 
         unsigned int figIndex = 0;
         for (L3D::Figure& figure : figures) {

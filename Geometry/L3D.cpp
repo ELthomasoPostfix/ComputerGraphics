@@ -130,6 +130,12 @@ L2D::Color L3D::Light::getDiffuseContribution(const Vector3D &normalizedNormal, 
     return L2D::Color::black();
 }
 
+L2D::Color
+L3D::Light::getSpecularContribution(const Vector3D &normalizedNormal, const L2D::Color &diffuseReflectivity, double x,
+                                    double y, double z, double d) const {
+    return L2D::Color::black();
+}
+
 const L2D::Color &L3D::Light::getAmbientIntensity() const {
     return this->_ambientIntensity;
 }
@@ -160,7 +166,6 @@ void L3D::Light::applyTransformation(const Matrix &matrix) {}
 
 
 
-
 L3D::InfLight::InfLight(const L2D::Color &ambient, const L2D::Color &diffuse, const L2D::Color &specular,
                         const Vector3D &ldVector) :
              L3D::Light(ambient, diffuse, specular) {
@@ -180,6 +185,25 @@ L2D::Color L3D::InfLight::getDiffuseContribution(const Vector3D &normalizedNorma
     return diffuseReflectivity * this->getDiffuseIntensity() * cosAlpha;
 }
 
+L2D::Color L3D::InfLight::getSpecularContribution(const Vector3D &normalizedNormal, const L2D::Color &specularReflectivity,
+                                                  double x, double y, double z, double d, const Vector3D& eye) const {
+
+    if (!specularReflectivity.nonZero())
+        return L2D::Color::black();
+
+    Vector3D l = - Vector3D::normalise(this->_ldVector);
+    const double cosAlpha = Vector3D::dot(normalizedNormal, l);
+
+    if (cosAlpha <= 0.0)
+        return L2D::Color::black();
+
+    Vector3D r = (normalizedNormal * 2.0 * cosAlpha) - l;
+    Vector3D originalPoint = L3D::recreatePoint3D(x, y, z, d);
+    Vector3D eyeConnector = eye - originalPoint;
+
+    return specularReflectivity * this->getSpecularIntensity() * cosAlpha;
+}
+
 void L3D::InfLight::applyTransformation(const Matrix &matrix) {
     this->_ldVector *= matrix;
 }
@@ -187,7 +211,6 @@ void L3D::InfLight::applyTransformation(const Matrix &matrix) {
 unsigned int L3D::InfLight::getType() const {
     return 1;
 }
-
 
 
 
@@ -258,7 +281,8 @@ L3D::LightCaster::LightCaster() :
         _ambientResult(0.0, 0.0, 0.0),
         _infDiffuseResult(0.0, 0.0, 0.0),
         _pointDiffuseResult(0.0, 0.0, 0.0),
-        _specularResult(0.0, 0.0, 0.0),
+        _infSpecularResult(0.0, 0.0, 0.0),
+        _pointSpecularResult(0.0, 0.0, 0.0),
         _diffuseReflectivity(nullptr),
         _specularReflectivity(nullptr),
         _reflectionCoefficient(0) {}
@@ -282,18 +306,20 @@ void L3D::LightCaster::recalculateAmbientResult(const L3D::Figure& figure) {
     this->_ambientResult *= figure.ambientReflectivity;
 }
 
-void L3D::LightCaster::recalculateInfDiffuseResult(const Vector3D &normalizedNormal) {
+void L3D::LightCaster::recalculateInfResults(const Vector3D &normalizedNormal) {
     // Reset the infinite diffuse component and add in all the contributions
     // of the L3D::InfLight light sources.
     this->_infDiffuseResult = L2D::Color::black();
     for (const L3D::Light* light : lightSources) {
-        if (light->isInfLight())
+        if (light->isInfLight()) {
             this->_infDiffuseResult += light->getDiffuseContribution(normalizedNormal, *this->_diffuseReflectivity);
+            // this->_infSpecularResult += light->getS
+        }
     }
 }
 
-void L3D::LightCaster::recalculatePointDiffuseResult(const Vector3D &normalizedNormal, const double x,
-                                                     const double y, const double z, const double d) {
+void L3D::LightCaster::recalculatePointResults(const Vector3D &normalizedNormal, const double x,
+                                              const double y, const double z, const double d) {
     // Reset the point diffuse component and add in all the contributions
     // of the L3D::PointLight light sources.
     this->_pointDiffuseResult = L2D::Color::black();
@@ -303,21 +329,14 @@ void L3D::LightCaster::recalculatePointDiffuseResult(const Vector3D &normalizedN
     }
 }
 
-
-void L3D::LightCaster::recalculateSpecularResult() {
-
-}
-
-void L3D::LightCaster::resetSpecularResult() {
-    this->_specularResult = L2D::Color::black();
-}
-
 L2D::Color L3D::LightCaster::getResultColor() const {
-    return this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult + this->_specularResult;
+    return this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult +
+    this->_infSpecularResult + this->_pointSpecularResult;
 }
 
 L2D::Color L3D::LightCaster::getClampedResultColor() const {
-    L2D::Color unClamped = this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult + this->_specularResult;
+    L2D::Color unClamped = this->_ambientResult + this->_infDiffuseResult + this->_pointDiffuseResult +
+            this->_infSpecularResult + this->_pointSpecularResult;
     return L2D::Color::colorClamp(unClamped.red, unClamped.green, unClamped.blue);
 }
 
